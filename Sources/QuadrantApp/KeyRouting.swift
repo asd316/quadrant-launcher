@@ -102,7 +102,7 @@ enum KeyResolver {
             return activate(in: ctx)
         case .open:
             guard let node = ctx.selectedNode else { return [] }
-            return [.intent(.open(node.path))]
+            return node.kind == .folder ? [.openFolderInFinder(node.path)] : [.intent(.open(node.path))]
         case .enterFolder:
             return enter(in: ctx)
         case .back:

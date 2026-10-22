@@ -8,4 +8,8 @@ protocol PanelWindowControlling: AnyObject {
     /// R7.2: shrink to the stash rectangle.
     func enterHalfHidden()
     func hide()
+    /// R7.7: drop to normal level so Finder opens above the panel; the panel stays visible.
+    func stepBehind()
+    /// Back to the panel level, in front.
+    func bringToFront()
 }

@@ -40,10 +40,23 @@ final class DragCoordinator {
 struct UIContext {
     let send: @MainActor (UIEvent) -> Void
     let coordinator: DragCoordinator
+    /// Show the icon-only action bar at a point in panel coordinates (top-left origin).
+    var presentActions: @MainActor (CGPoint, [NodeAction]) -> Void = { _, _ in }
+    var dismissActions: @MainActor () -> Void = {}
+    /// Tells the panel which zone an outside drag hovers, for the highlight. `nil` when it leaves.
+    var externalHover: @MainActor (DropZone?) -> Void = { _ in }
 }
 
-struct NodeMenuItem {
+enum ActionIcon {
+    case symbol(String)
+    /// The real Finder app icon.
+    case finder
+}
+
+/// One icon button of the action bar. `title` is the tooltip.
+struct NodeAction {
     var title: String
+    var icon: ActionIcon
     var action: @MainActor () -> Void
 }
 
@@ -55,17 +68,20 @@ struct InteractionNode {
     var onClick: (@MainActor () -> Void)?
     var onDoubleClick: (@MainActor () -> Void)?
     var onHover: (@MainActor (Bool) -> Void)?
-    var menu: [NodeMenuItem] = []
+    var menu: [NodeAction] = []
+    /// Zone an outside (Finder) drop on this node counts for (R7.7).
+    var dropZone: DropZone?
     /// Wait out the double-click interval before running `onClick`, so a double click does not also run it.
     var delaysClick = false
 }
 
-/// Menu items shared by all node types: 复制路径 first, 在 Finder 中显示 last, type-specific ones between.
+/// Actions shared by all node types: 复制路径 first, 在 Finder 中显示 after the type-specific ones, `after` last.
 @MainActor
-func nodeMenu(path: NodePath, context: UIContext, specific: [NodeMenuItem]) -> [NodeMenuItem] {
-    [NodeMenuItem(title: "复制路径", action: { context.send(.copyPath(path)) })]
+func nodeMenu(path: NodePath, context: UIContext, specific: [NodeAction], after: [NodeAction] = []) -> [NodeAction] {
+    [NodeAction(title: "复制路径", icon: .symbol("doc.on.doc"), action: { context.send(.copyPath(path)) })]
         + specific
-        + [NodeMenuItem(title: "在 Finder 中显示", action: { context.send(.revealInFinder(path)) })]
+        + [NodeAction(title: "在 Finder 中显示", icon: .finder, action: { context.send(.revealInFinder(path)) })]
+        + after
 }
 
 /// AppKit overlay that owns click, double click, context menu, hover and drag-out for one node.
@@ -94,6 +110,13 @@ final class InteractionView: NSView, NSDraggingSource {
     private var dragStarted = false
     private var pendingClick: Task<Void, Never>?
 
+    override init(frame: NSRect) {
+        super.init(frame: frame)
+        registerForDraggedTypes([.fileURL])
+    }
+
+    required init?(coder: NSCoder) { nil }
+
     override var acceptsFirstResponder: Bool { false }
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 
@@ -120,6 +143,7 @@ final class InteractionView: NSView, NSDraggingSource {
     // MARK: Click and drag
 
     override func mouseDown(with event: NSEvent) {
+        node?.context.dismissActions()
         mouseDownEvent = event
         dragStarted = false
     }
@@ -156,22 +180,47 @@ final class InteractionView: NSView, NSDraggingSource {
         }
     }
 
-    // MARK: Context menu
+    // MARK: Action bar (right click)
 
-    override func menu(for event: NSEvent) -> NSMenu? {
-        guard let node, !node.menu.isEmpty else { return nil }
-        let menu = NSMenu()
-        for entry in node.menu {
-            let item = NSMenuItem(title: entry.title, action: #selector(runMenuItem(_:)), keyEquivalent: "")
-            item.target = self
-            item.representedObject = MenuAction(entry.action)
-            menu.addItem(item)
-        }
-        return menu
+    override func rightMouseDown(with event: NSEvent) {
+        guard let node, !node.menu.isEmpty else { return }
+        let height = window?.contentView?.bounds.height ?? 0
+        let point = CGPoint(x: event.locationInWindow.x, y: height - event.locationInWindow.y)
+        node.context.dismissActions()
+        node.context.presentActions(point, node.menu)
     }
 
-    @objc private func runMenuItem(_ sender: NSMenuItem) {
-        (sender.representedObject as? MenuAction)?.run()
+    // MARK: Outside drops (R7.7)
+
+    private func externalPaths(_ sender: NSDraggingInfo) -> [NodePath] {
+        let urls = sender.draggingPasteboard.readObjects(
+            forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL] ?? []
+        return urls.map { NodePath($0.path) }
+    }
+
+    private var externalZone: DropZone? {
+        DragCoordinator.shared.isDragging ? nil : node?.dropZone
+    }
+
+    override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
+        guard let zone = externalZone, !externalPaths(sender).isEmpty else { return [] }
+        node?.context.externalHover(zone)
+        return .copy
+    }
+
+    override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation {
+        externalZone == nil ? [] : .copy
+    }
+
+    override func draggingExited(_ sender: NSDraggingInfo?) { node?.context.externalHover(nil) }
+
+    override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
+        guard let node, let zone = externalZone else { return false }
+        let paths = externalPaths(sender)
+        node.context.externalHover(nil)
+        guard !paths.isEmpty else { return false }
+        node.context.send(.externalDrop(paths, on: zone))
+        return true
     }
 
     // MARK: NSDraggingSource
@@ -196,27 +245,34 @@ final class InteractionView: NSView, NSDraggingSource {
     }
 }
 
-/// Registers a drop zone for the panel's own drag and records the drop on the shared coordinator.
+/// Drop zone. During the panel's own drag (`DragCoordinator.shared.isDragging`) the zone windows' views
+/// record the drop for the source. Otherwise, where `onExternalDrop` is set (the main panel), files dragged
+/// in from other apps are reported through it (R7.7). Each instance handles only its own kind, so a drop is
+/// never handled twice.
 struct ZoneDropTarget: NSViewRepresentable {
     let zone: DropZone
     @Binding var isTargeted: Bool
+    var onExternalDrop: (([NodePath]) -> Void)?
 
     func makeNSView(context: Context) -> ZoneDropView {
         let view = ZoneDropView()
-        view.zone = zone
-        view.onTargeted = { isTargeted = $0 }
+        configure(view)
         return view
     }
 
-    func updateNSView(_ view: ZoneDropView, context: Context) {
+    func updateNSView(_ view: ZoneDropView, context: Context) { configure(view) }
+
+    private func configure(_ view: ZoneDropView) {
         view.zone = zone
         view.onTargeted = { isTargeted = $0 }
+        view.onExternalDrop = onExternalDrop
     }
 }
 
 final class ZoneDropView: NSView {
     var zone: DropZone = .stash
     var onTargeted: ((Bool) -> Void)?
+    var onExternalDrop: (([NodePath]) -> Void)?
 
     override init(frame: NSRect) {
         super.init(frame: frame)
@@ -225,22 +281,42 @@ final class ZoneDropView: NSView {
 
     required init?(coder: NSCoder) { nil }
 
+    /// Drop-only view: never takes mouse events, so nodes and background clicks work through it.
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
+
+    private var isInternalDrag: Bool { DragCoordinator.shared.isDragging }
+
+    /// This instance handles the drag in progress: internal drags in zone windows, outside drags in the panel.
+    private var handlesCurrentDrag: Bool { isInternalDrag ? onExternalDrop == nil : onExternalDrop != nil }
+
+    private func paths(_ sender: NSDraggingInfo) -> [NodePath] {
+        let urls = sender.draggingPasteboard.readObjects(
+            forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL] ?? []
+        return urls.map { NodePath($0.path) }
+    }
+
     override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
-        guard DragCoordinator.shared.isDragging else { return [] }
+        guard handlesCurrentDrag, isInternalDrag || !paths(sender).isEmpty else { return [] }
         onTargeted?(true)
         return .copy
     }
 
     override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation {
-        DragCoordinator.shared.isDragging ? .copy : []
+        handlesCurrentDrag ? .copy : []
     }
 
     override func draggingExited(_ sender: NSDraggingInfo?) { onTargeted?(false) }
 
     override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
-        guard DragCoordinator.shared.isDragging else { return false }
-        DragCoordinator.shared.recordDrop(on: zone)
+        guard handlesCurrentDrag else { return false }
         onTargeted?(false)
+        if isInternalDrag {
+            DragCoordinator.shared.recordDrop(on: zone)
+            return true
+        }
+        let dropped = paths(sender)
+        guard !dropped.isEmpty else { return false }
+        onExternalDrop?(dropped)
         return true
     }
 }

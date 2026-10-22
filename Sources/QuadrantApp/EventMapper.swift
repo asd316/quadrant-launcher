@@ -8,6 +8,8 @@ enum AppCommand {
     /// Keyboard selection is App-side state.
     case select(NodePath?)
     case reveal(NodePath)
+    /// R7.7: open a folder in Finder with the panel stepping behind it (no close).
+    case openFolderInFinder(NodePath)
     case starCapacity(Edge, Int)
 }
 
@@ -17,6 +19,16 @@ struct MappingContext {
     var model: PanelRenderModel
     var starCapacity: [Edge: Int]
     var exists: PathExistence
+    /// Kind of an existing path, nil when it does not exist.
+    var kindOf: @Sendable (NodePath) -> NodeKind? = FileKinds.kind(of:)
+}
+
+enum FileKinds {
+    static func kind(of path: NodePath) -> NodeKind? {
+        var isDirectory: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: path.raw, isDirectory: &isDirectory) else { return nil }
+        return isDirectory.boolValue ? .folder : .file
+    }
 }
 
 /// `UIEvent → [AppCommand]` (User-Flow, Data-Model › 用户意图). Pure.
@@ -31,9 +43,11 @@ enum EventMapper {
             return [.intent(.openLens(edge, folder: folder))]
         case .select(let path):
             return [.select(path)]
-        case .doubleClick(let path, _):
-            // R7.6: files open with their app, folders open in Finder; both close the panel.
-            return [.intent(.open(path))]
+        case .doubleClick(let path, let kind):
+            // R7.6: a file opens with its app and the panel closes. R7.7: a folder opens in Finder, panel steps behind.
+            return kind == .file ? [.intent(.open(path))] : [.openFolderInFinder(path)]
+        case .externalDrop(let paths, let zone):
+            return externalDrop(paths, on: zone, in: ctx)
         case .copyPath(let path):
             return [.intent(.copyPath(path))]
         case .lensEnter(let path):
@@ -62,6 +76,17 @@ enum EventMapper {
             return [.intent(.endDrag(outcome))]
         case .starCapacityMeasured(let edge, let count):
             return [.starCapacity(edge, count)]
+        }
+    }
+
+    /// R7.7: files dragged in from Finder. Missing paths are skipped.
+    static func externalDrop(_ paths: [NodePath], on zone: DropZone, in ctx: MappingContext) -> [AppCommand] {
+        paths.compactMap { path in
+            guard let kind = ctx.kindOf(path) else { return nil }
+            switch zone {
+            case .stash: return .intent(.stashAdd(path, kind: kind))
+            case .pinnedShelf(let edge): return .intent(.pinSlot(edge, path, kind: kind))
+            }
         }
     }
 

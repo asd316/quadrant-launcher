@@ -30,13 +30,31 @@ import Testing
         #expect(map(.doubleClick(np("/r/top/readme.txt"), .file)) == ["open(/r/top/readme.txt)"])
     }
 
-    @Test func doubleClickFolderOpensInFinderEvenWithLensOpen() {
+    @Test func doubleClickFolderOpensInFinderWithoutCoreClose() {
         var state = baseState()
         state.lens.isOpen = true
         state.lens.edge = .top
         state.lens.folders[.top] = np("/r/top/Alpha")
-        #expect(map(.doubleClick(np("/r/top/Alpha/Docs"), .folder), state) == ["open(/r/top/Alpha/Docs)"])
-        #expect(map(.doubleClick(np("/r/top/Alpha"), .folder)) == ["open(/r/top/Alpha)"])
+        #expect(map(.doubleClick(np("/r/top/Alpha/Docs"), .folder), state) == ["openFolder(/r/top/Alpha/Docs)"])
+    }
+
+    @Test func revealGoesToApp() {
+        #expect(map(.revealInFinder(np("/r/top/readme.txt"))) == ["reveal(/r/top/readme.txt)"])
+    }
+
+    @Test func externalDropOnStashStashesExistingPathsWithKinds() {
+        var ctx = mapping(baseState())
+        ctx.kindOf = { $0.raw == "/gone" ? nil : ($0.raw.hasSuffix(".txt") ? .file : .folder) }
+        let cmds = EventMapper.commands(for: .externalDrop([np("/a/x.txt"), np("/gone"), np("/a/dir")], on: .stash), in: ctx)
+        #expect(describe(cmds) == ["stashAdd(/a/x.txt)", "stashAdd(/a/dir)"])
+    }
+
+    @Test func externalDropOnShelfPinsSlotPerPath() {
+        var ctx = mapping(baseState())
+        ctx.kindOf = { $0.raw.hasSuffix(".txt") ? .file : .folder }
+        let cmds = EventMapper.commands(for: .externalDrop([np("/a/x.txt"), np("/a/dir")], on: .pinnedShelf(.left)), in: ctx)
+        #expect(describe(cmds) == ["pinSlot(left,/a/x.txt)", "pinSlot(left,/a/dir)"])
+        if case .intent(.pinSlot(_, _, let kind)) = cmds[1] { #expect(kind == .folder) } else { Issue.record("not pinSlot") }
     }
 
     @Test func singleLensEnterStillEntersLens() {

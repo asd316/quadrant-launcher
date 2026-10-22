@@ -65,7 +65,9 @@ enum RenderModelBuilder {
             let matches = Filter.matches(state.filterText, in: input.snapshots, usage: input.usage, now: input.now)
             return LensModel(
                 mode: .filter(query: state.filterText),
-                rows: matches.map { LensRow(path: $0.node.path, kind: $0.node.kind, edge: $0.edge) })
+                rows: matches.map { LensRow(
+                    path: $0.node.path, kind: $0.node.kind, edge: $0.edge,
+                    modifiedAt: $0.node.modifiedAt, size: $0.node.size) })
         }
         guard state.lens.isOpen, let edge = state.lens.edge, let folder = state.lens.folders[edge],
               let root = state.persistent.roots[edge]
@@ -81,7 +83,7 @@ enum RenderModelBuilder {
             children = nil
         }
         let rows = DisplayWeight.rank(children ?? [], usage: input.usage, now: input.now)
-            .map { LensRow(path: $0.node.path, kind: $0.node.kind) }
+            .map { LensRow(path: $0.node.path, kind: $0.node.kind, modifiedAt: $0.node.modifiedAt, size: $0.node.size) }
         return LensModel(
             mode: .folder(edge: edge, crumbs: crumbs(root: root, folder: folder)),
             rows: rows, isLoading: children == nil)

@@ -1,3 +1,4 @@
+import Foundation
 import QuadrantCore
 import QuadrantUI
 import Testing
@@ -60,7 +61,7 @@ import Testing
         let model = render(state)
         #expect(model.filterText == "spec")
         #expect(model.lens?.mode == .filter(query: "spec"))
-        #expect(model.lens?.rows == [LensRow(path: np("/r/top/Alpha/Docs/spec.md"), kind: .file, edge: .top)])
+        #expect(model.lens?.rows == [LensRow(path: np("/r/top/Alpha/Docs/spec.md"), kind: .file, edge: .top, modifiedAt: fxNow)])
     }
 
     @Test func filterWithoutMatchHasEmptyRows() {
@@ -96,5 +97,25 @@ import Testing
         let model = render(state, selection: np("/r/top/Beta"))
         #expect(model.isHalfHidden)
         #expect(model.keyboardSelection == np("/r/top/Beta"))
+    }
+
+    @Test func lensRowsCarryDateAndSize() {
+        var state = baseState()
+        state.lens.isOpen = true
+        state.lens.edge = .top
+        state.lens.folders[.top] = np("/r/top/Alpha/Docs")
+        let when = Date(timeIntervalSince1970: 1_500_000)
+        let cache = [np("/r/top/Alpha/Docs"): [
+            FolderNode(path: np("/r/top/Alpha/Docs/a.md"), kind: .file, modifiedAt: when, size: 42)]]
+        let row = render(state, cache: cache).lens?.rows.first
+        #expect(row?.modifiedAt == when)
+        #expect(row?.size == 42)
+    }
+
+    @Test func filterRowsCarryDate() {
+        var state = baseState()
+        state.filterText = "spec"
+        state.lens.isOpen = true
+        #expect(render(state).lens?.rows.first?.modifiedAt == fxNow)
     }
 }

@@ -22,6 +22,8 @@ final class AppModel {
     @ObservationIgnored private var usage = UsageIndex.empty
     @ObservationIgnored private var message: String?
     @ObservationIgnored private var copyProgress: Double?
+    /// R7.7: the panel is open but stepped behind Finder.
+    @ObservationIgnored private(set) var isBehindFinder = false
     @ObservationIgnored private var pendingNotices: [String]
 
     @ObservationIgnored private let store: (any StateStore & UsageLog)?
@@ -30,6 +32,9 @@ final class AppModel {
     @ObservationIgnored private let bindings: ShortcutBindings
     @ObservationIgnored private let clock: @MainActor () -> Date
     @ObservationIgnored private let messageDuration: Duration
+    /// Opens a URL with its default app (Finder for folders). Injected so tests do not launch anything.
+    @ObservationIgnored private let openURL: @MainActor (URL) -> Void
+    @ObservationIgnored private let revealURL: @MainActor (URL) -> Void
 
     @ObservationIgnored weak var window: (any PanelWindowControlling)?
     @ObservationIgnored private var watchedRoots: [Edge: NodePath] = [:]
@@ -44,6 +49,8 @@ final class AppModel {
         bindings: ShortcutBindings = .defaults,
         startupNotices: [String] = [],
         messageDuration: Duration = .milliseconds(2500),
+        openURL: @escaping @MainActor (URL) -> Void = { NSWorkspace.shared.open($0) },
+        revealURL: @escaping @MainActor (URL) -> Void = { NSWorkspace.shared.activateFileViewerSelecting([$0]) },
         clock: @escaping @MainActor () -> Date = { Date() }
     ) {
         self.store = store
@@ -52,6 +59,8 @@ final class AppModel {
         self.bindings = bindings
         self.pendingNotices = startupNotices
         self.messageDuration = messageDuration
+        self.openURL = openURL
+        self.revealURL = revealURL
         self.clock = clock
     }
 
@@ -103,7 +112,13 @@ final class AppModel {
         case .closed:
             dispatch(.summon)
         case .full:
-            closePanel()
+            if isBehindFinder {
+                // R7.7: a second summon brings the panel back; the next one closes it as usual.
+                isBehindFinder = false
+                window?.bringToFront()
+            } else {
+                closePanel()
+            }
         case .halfHidden:
             break
         }
@@ -159,12 +174,26 @@ final class AppModel {
             switch command {
             case .intent(let intent): dispatch(intent, rebuild: false)
             case .select(let path): selection = path
-            case .reveal(let path): NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path.raw)])
+            case .reveal(let path):
+                stepBehindFinder()
+                revealURL(URL(fileURLWithPath: path.raw))
+            case .openFolderInFinder(let path):
+                guard state.display == .full else { break }
+                // Core's .open always closes the panel, so usage is recorded here instead (R1.1 open).
+                execute(.recordUsage(UsageEvent(path: path, action: .open, occurredAt: clock())))
+                stepBehindFinder()
+                openURL(URL(fileURLWithPath: path.raw))
             case .starCapacity(let edge, let count):
                 starCapacity[edge] = max(0, count)
             }
         }
         rebuild()
+    }
+
+    private func stepBehindFinder() {
+        guard state.display == .full else { return }
+        isBehindFinder = true
+        window?.stepBehind()
     }
 
     // MARK: Core loop
@@ -210,7 +239,7 @@ final class AppModel {
         case .writeNodeToPasteboard(let path, _):
             PasteboardWriter.writeNode(path)
         case .openWithDefaultApp(let path):
-            NSWorkspace.shared.open(URL(fileURLWithPath: path.raw))
+            openURL(URL(fileURLWithPath: path.raw))
         case .loadChildren(let folder):
             reloadChildren(folder)
         case .showRejection(let rejection):
@@ -221,10 +250,12 @@ final class AppModel {
             startCopy(sources: sources, destination: destination)
         case .closePanel:
             selection = nil
+            isBehindFinder = false
             window?.hide()
         case .enterHalfHidden:
             window?.enterHalfHidden()
         case .restoreFull:
+            isBehindFinder = false
             window?.restoreFull()
             if !pendingNotices.isEmpty {
                 showMessage(pendingNotices.joined(separator: "；"))

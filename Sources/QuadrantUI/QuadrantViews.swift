@@ -126,9 +126,10 @@ struct ShelfSlot: View {
                         path: path, context: context,
                         specific: [
                             isPinned
-                                ? NodeMenuItem(title: "移出固定位", action: { context.send(.unpinSlot(edge, path)) })
-                                : NodeMenuItem(title: "放进固定位", action: { context.send(.pinSlot(edge, path)) })
-                        ]))))
+                                ? NodeAction(title: "移出固定位", icon: .symbol("pin.slash"), action: { context.send(.unpinSlot(edge, path)) })
+                                : NodeAction(title: "放进固定位", icon: .symbol("pin"), action: { context.send(.pinSlot(edge, path)) })
+                        ]),
+                    dropZone: isPinned ? .pinnedShelf(edge) : nil)))
         .help(name)
     }
 }
@@ -319,10 +320,10 @@ struct BranchPill: View {
                     path: item.path, context: context,
                     specific: [
                         item.isPinned
-                            ? NodeMenuItem(title: "取消置顶", action: { context.send(.unpinFolder(item.path)) })
-                            : NodeMenuItem(title: "置顶", action: { context.send(.pinFolder(edge, item.path)) }),
-                        NodeMenuItem(title: "隐藏", action: { context.send(.hideBranch(edge, item.path)) }),
-                    ])),
+                            ? NodeAction(title: "取消置顶", icon: .symbol("pin.slash"), action: { context.send(.unpinFolder(item.path)) })
+                            : NodeAction(title: "置顶", icon: .symbol("pin"), action: { context.send(.pinFolder(edge, item.path)) })
+                    ],
+                    after: [NodeAction(title: "隐藏", icon: .symbol("eye.slash"), action: { context.send(.hideBranch(edge, item.path)) })])),
             trailingInset: showsBadge ? 34 : 0)
         .help(item.name)
     }
@@ -398,8 +399,8 @@ struct StarView: View {
                     path: item.path, context: context,
                     specific: [
                         item.isPinned
-                            ? NodeMenuItem(title: "取消置顶", action: { context.send(.unpinFolder(item.path)) })
-                            : NodeMenuItem(title: "置顶", action: { context.send(.pinFolder(edge, item.path)) })
+                            ? NodeAction(title: "取消置顶", icon: .symbol("pin.slash"), action: { context.send(.unpinFolder(item.path)) })
+                            : NodeAction(title: "置顶", icon: .symbol("pin"), action: { context.send(.pinFolder(edge, item.path)) })
                     ])))
         .help(item.name)
     }

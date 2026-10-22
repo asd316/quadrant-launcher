@@ -10,6 +10,13 @@ public struct PanelView: View {
     @Environment(\.colorScheme) private var scheme
     @Environment(\.isStaticRender) private var isStatic
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var actionBar: ActionBarModel?
+    @State private var externalTarget: DropZone?
+
+    struct ActionBarModel {
+        var origin: CGPoint
+        var actions: [NodeAction]
+    }
 
     public init(model: PanelRenderModel, send: @escaping @MainActor (UIEvent) -> Void) {
         self.model = model
@@ -25,7 +32,11 @@ public struct PanelView: View {
     private func content(size: CGSize) -> some View {
         let theme = Theme(scheme)
         let geometry = PanelGeometry(size: size)
-        let context = UIContext(send: send, coordinator: .shared)
+        let context = UIContext(
+            send: send, coordinator: .shared,
+            presentActions: { origin, actions in actionBar = ActionBarModel(origin: origin, actions: actions) },
+            dismissActions: { if actionBar != nil { actionBar = nil } },
+            externalHover: { externalTarget = $0 })
         let hidden = model.isHalfHidden
         let lensOpen = model.lens != nil
         let capacities = PanelLayout.starCapacities(for: model, size: size)
@@ -35,6 +46,7 @@ public struct PanelView: View {
         return ZStack(alignment: .topLeading) {
             ZStack(alignment: .topLeading) {
                 background(theme: theme, size: size)
+                externalZones(geometry: geometry, theme: theme, context: context)
                 ZStack(alignment: .topLeading) {
                     ForEach(Edge.allCases, id: \.self) { edge in
                         quadrant(edge, size: size, geometry: geometry, theme: theme, context: context)
@@ -44,6 +56,12 @@ public struct PanelView: View {
                 .animation(fade, value: lensOpen)
 
                 centerLayer(size: size, theme: theme, context: context)
+
+                if let bar = actionBar {
+                    ActionBarView(
+                        origin: bar.origin, actions: bar.actions, panelSize: size, theme: theme,
+                        dismiss: { actionBar = nil })
+                }
             }
             .opacity(hidden ? 0 : 1)
             .allowsHitTesting(!hidden)
@@ -176,6 +194,22 @@ public struct PanelView: View {
         case .left: CGPoint(x: 22, y: g.center.y + 250)
         case .right: CGPoint(x: -35, y: g.center.y - 270)
         case .bottom: CGPoint(x: -150, y: g.size.height - 60)
+        }
+    }
+
+    // MARK: External drops (R7.7)
+
+    /// The stash and each edge's 「固定」 section accept files dragged in from other apps.
+    @ViewBuilder
+    private func externalZones(geometry: PanelGeometry, theme: Theme, context: UIContext) -> some View {
+        let rects = PanelLayout.dropZoneRects(size: geometry.size, model: model)
+        ForEach(Array(rects.keys.sorted { String(describing: $0) < String(describing: $1) }), id: \.self) { zone in
+            if let rect = rects[zone] {
+                ExternalDropZone(
+                    zone: zone, rect: rect, radius: zone == .stash ? 16 : 8, targeted: externalTarget == zone,
+                    theme: theme, context: context)
+                .anchored(.topLeading, in: geometry.size, dx: rect.minX, dy: rect.minY)
+            }
         }
     }
 

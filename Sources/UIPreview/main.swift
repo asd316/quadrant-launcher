@@ -102,8 +102,15 @@ func makeModel(lens: Bool) -> PanelRenderModel {
     if lens {
         model.lens = LensModel(
             mode: .folder(edge: .top, crumbs: [downloads, papers]),
-            rows: [LensRow(path: papers.appending("已读"), kind: .folder), LensRow(path: papers.appending("待读"), kind: .folder)]
-                + (1...38).map { LensRow(path: papers.appending(String(format: "paper-%02d.pdf", $0)), kind: .file) })
+            rows: [
+                LensRow(path: papers.appending("已读"), kind: .folder, modifiedAt: Date().addingTimeInterval(-2 * 86_400)),
+                LensRow(path: papers.appending("待读"), kind: .folder, modifiedAt: Date().addingTimeInterval(-40 * 86_400)),
+            ]
+                + (1...38).map {
+                    LensRow(
+                        path: papers.appending(String(format: "paper-%02d.pdf", $0)), kind: .file,
+                        modifiedAt: Date().addingTimeInterval(-Double($0) * 40_000 - 400_000), size: Int64($0) * 311_000)
+                })
         model.keyboardSelection = papers.appending("paper-01.pdf")
     }
     return model

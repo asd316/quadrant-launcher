@@ -75,3 +75,41 @@ import Testing
         #expect(model.render.filterText == "a")
     }
 }
+
+@MainActor
+final class FakeWindow: PanelWindowControlling {
+    var calls: [String] = []
+    func restoreFull() { calls.append("restoreFull") }
+    func enterHalfHidden() { calls.append("half") }
+    func hide() { calls.append("hide") }
+    func stepBehind() { calls.append("behind") }
+    func bringToFront() { calls.append("front") }
+}
+
+@MainActor
+@Suite struct FinderOpenTests {
+    @Test func folderOpenStepsBehindAndKeepsPanelFull() {
+        let model = AppModel(store: nil, openURL: { _ in }, revealURL: { _ in })
+        let window = FakeWindow()
+        model.window = window
+        model.togglePanel()
+        model.handle(.doubleClick(np("/tmp"), .folder))
+        #expect(model.state.display == .full)
+        #expect(model.isBehindFinder)
+        #expect(window.calls.contains("behind"))
+        // Second summon brings it back; the next one closes it.
+        model.togglePanel()
+        #expect(window.calls.last == "front")
+        #expect(model.state.display == .full)
+        model.togglePanel()
+        #expect(model.state.display == .closed)
+    }
+
+    @Test func fileOpenClosesPanel() {
+        let model = AppModel(store: nil, openURL: { _ in }, revealURL: { _ in })
+        model.window = FakeWindow()
+        model.togglePanel()
+        model.dispatch(.open(np("/nonexistent-file-for-test.txt")))
+        #expect(model.state.display == .closed)
+    }
+}

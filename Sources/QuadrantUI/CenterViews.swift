@@ -58,7 +58,8 @@ struct StashItemSlot: View {
                     onHover: { hovered = $0 },
                     menu: nodeMenu(
                         path: path, context: context,
-                        specific: [NodeMenuItem(title: "移出暂存区", action: { context.send(.stashRemove(path)) })]))))
+                        specific: [NodeAction(title: "移出暂存区", icon: .symbol("xmark"), action: { context.send(.stashRemove(path)) })]),
+                    dropZone: .stash)))
         .help(path.name)
     }
 }
@@ -143,11 +144,21 @@ struct LensRowView: View {
                 HStack(spacing: 8) {
                     actionButton("doc.on.doc", help: "复制路径") { context.send(.copyPath(path)) }
                     actionButton(
-                        "bookmark", help: row.kind == .folder ? "置顶" : "放进固定位"
+                        "pin", help: row.kind == .folder ? "置顶" : "放进固定位"
                     ) {
                         context.send(row.kind == .folder ? .pinFolder(pinEdge, path) : .pinSlot(pinEdge, path))
                     }
                 }
+            } else if row.modifiedAt != nil || row.size != nil {
+                HStack(spacing: 8) {
+                    Text(row.modifiedAt.map { LensFormat.dateText($0, now: Date()) } ?? "")
+                        .frame(width: 84, alignment: .trailing)
+                    Text(row.size.map(LensFormat.sizeText) ?? "")
+                        .frame(width: 60, alignment: .trailing)
+                }
+                .font(Theme.smallFont)
+                .foregroundStyle(theme.lensCount)
+                .lineLimit(1)
             } else if showsContext, let parent = path.parent {
                 Text(parent.name).font(Theme.smallFont).foregroundStyle(theme.lensCount).lineLimit(1)
             }
@@ -168,14 +179,14 @@ struct LensRowView: View {
         .onHover { hovered = $0 }
     }
 
-    private var pinMenu: [NodeMenuItem] {
+    private var pinMenu: [NodeAction] {
         if row.kind == .folder {
             return [
-                NodeMenuItem(title: "置顶", action: { context.send(.pinFolder(pinEdge, row.path)) }),
-                NodeMenuItem(title: "取消置顶", action: { context.send(.unpinFolder(row.path)) }),
+                NodeAction(title: "置顶", icon: .symbol("pin"), action: { context.send(.pinFolder(pinEdge, row.path)) }),
+                NodeAction(title: "取消置顶", icon: .symbol("pin.slash"), action: { context.send(.unpinFolder(row.path)) }),
             ]
         }
-        return [NodeMenuItem(title: "放进固定位", action: { context.send(.pinSlot(pinEdge, row.path)) })]
+        return [NodeAction(title: "放进固定位", icon: .symbol("pin"), action: { context.send(.pinSlot(pinEdge, row.path)) })]
     }
 
     private func actionButton(_ symbol: String, help: String, action: @escaping @MainActor () -> Void) -> some View {

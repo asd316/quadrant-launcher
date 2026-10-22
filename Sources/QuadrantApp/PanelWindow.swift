@@ -133,6 +133,7 @@ final class PanelWindowController: PanelWindowControlling {
 
     func restoreFull() {
         generation += 1
+        raiseLevel()
         removeZoneWindows()
         panel.ignoresMouseEvents = false
         fullFrame = Self.currentFrame()
@@ -171,8 +172,30 @@ final class PanelWindowController: PanelWindowControlling {
         }
     }
 
+    func stepBehind() {
+        // Stays ordered in, visible and non-activating, and keeps accepting drags from other apps.
+        panel.isFloatingPanel = false
+        panel.level = .normal
+        panel.ignoresMouseEvents = false
+        panel.alphaValue = 1
+    }
+
+    func bringToFront() {
+        raiseLevel()
+        panel.ignoresMouseEvents = false
+        panel.orderFrontRegardless()
+        panel.makeKey()
+        panel.makeFirstResponder(panel.textInput)
+    }
+
+    private func raiseLevel() {
+        panel.isFloatingPanel = true
+        panel.level = Self.panelLevel
+    }
+
     func hide() {
         generation += 1
+        raiseLevel()
         let mine = generation
         removeZoneWindows()
         panel.ignoresMouseEvents = false

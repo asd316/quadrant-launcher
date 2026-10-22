@@ -23,5 +23,6 @@ let package = Package(
         .testTarget(name: "QuadrantCoreTests", dependencies: ["QuadrantCore"]),
         .testTarget(name: "QuadrantSystemTests", dependencies: ["QuadrantSystem"]),
         .testTarget(name: "QuadrantUITests", dependencies: ["QuadrantUI"]),
+        .testTarget(name: "QuadrantAppTests", dependencies: ["QuadrantApp"]),
     ]
 )

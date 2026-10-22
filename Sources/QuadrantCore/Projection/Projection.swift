@@ -50,7 +50,8 @@ public enum Projection {
             edge: edge, root: root, status: .ready,
             branches: branches,
             stars: projectStars(
-                snapshot: snapshot, state: state, focus: focus, capacity: input.starCapacity, usage: usage, now: now),
+                snapshot: snapshot, state: state, focus: focus, currentFolder: input.currentFolder,
+                capacity: input.starCapacity, usage: usage, now: now),
             floating: projectFloating(input: input, usage: usage, now: now),
             currentFolder: input.currentFolder,
             pinnedSlots: pinnedSlots)
@@ -88,12 +89,16 @@ public enum Projection {
             isPinned: isPinned, isFocused: node.path == focus)
     }
 
-    // MARK: Stars (R2.2, R2.3, R3.2)
+    // MARK: Stars (R2.2, R2.3, R2.8, R3.2)
 
     static func projectStars(
-        snapshot: FolderSnapshot, state: PersistentState, focus: NodePath?, capacity: Int,
-        usage: UsageIndex, now: Date
+        snapshot: FolderSnapshot, state: PersistentState, focus: NodePath?, currentFolder: NodePath?,
+        capacity: Int, usage: UsageIndex, now: Date
     ) -> StarsResult {
+        // R2.8: clicking the level-1 root turns the starfield into that root's direct file points.
+        if currentFolder == snapshot.root.path {
+            return projectRootFileStars(snapshot: snapshot, capacity: capacity, usage: usage, now: now)
+        }
         guard let focus,
             let branch = snapshot.root.folders.first(where: { $0.path == focus }),
             state.marks[focus]?.mark != .hidden
@@ -112,10 +117,28 @@ public enum Projection {
                 path: node.path, name: node.name,
                 brightness: DisplayWeight.brightness(
                     weight: DisplayWeight.weight(of: node, usage: usage, now: now), maxWeight: maxWeight),
-                isPinned: isPinned, hasDrillPath: state.drillPaths[node.path] != nil)
+                isPinned: isPinned, hasDrillPath: state.drillPaths[node.path] != nil, kind: .folder)
         }
         let items = shownPinned.map { star($0, isPinned: true) } + rankedRest.map { star($0.node, isPinned: false) }
         return StarsResult(branch: focus, items: items, truncatedCount: groups.count - items.count)
+    }
+
+    /// R2.8: the root's direct files, ranked like every other star; the lens still holds the full list.
+    static func projectRootFileStars(
+        snapshot: FolderSnapshot, capacity: Int, usage: UsageIndex, now: Date
+    ) -> StarsResult {
+        let files = snapshot.root.files
+        let maxWeight = files.map { DisplayWeight.weight(of: $0, usage: usage, now: now) }.max() ?? 0
+        let shown = DisplayWeight.rank(files, usage: usage, now: now).prefix(max(0, capacity))
+        let items = shown.map { weighted in
+            StarItem(
+                path: weighted.node.path, name: weighted.node.name,
+                brightness: DisplayWeight.brightness(weight: weighted.weight, maxWeight: maxWeight),
+                isPinned: false, hasDrillPath: false, kind: .file)
+        }
+        return StarsResult(
+            branch: snapshot.root.path, items: items, truncatedCount: files.count - items.count,
+            isRootFiles: true)
     }
 
     // MARK: Floating slots (R2.5)

@@ -84,6 +84,16 @@ import Testing
         #expect(render(baseState()).quadrants[.top]?.currentFolder == np("/r/top/Alpha"))
     }
 
+    @Test func rootFolderTurnsItsFilesIntoFilePoints() {
+        var state = baseState()
+        state.lens.edge = .top
+        state.lens.folders[.top] = np("/r/top")
+        let stars = render(state).quadrants[.top]?.stars
+        #expect(stars?.isRootFiles == true)
+        #expect(stars?.items.map(\.path) == [np("/r/top/readme.txt")])
+        #expect(stars?.items.first?.kind == .file)
+    }
+
     @Test func filterModeListsMatchesWithEdge() {
         var state = baseState()
         state.filterText = "spec"

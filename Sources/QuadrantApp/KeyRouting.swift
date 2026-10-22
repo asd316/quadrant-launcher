@@ -124,14 +124,16 @@ enum KeyResolver {
         [.intent(.crossNavigate(direction)), .select(nil)]
     }
 
-    /// ↩: file → copy path, folder in the lens → enter, branch → focus, star → open its lens.
+    /// ↩: file → copy path, folder in the lens → enter, branch → focus, folder star → open its lens.
     private static func activate(in ctx: KeyContext) -> [AppCommand] {
         guard let node = ctx.selectedNode else { return [] }
         switch node.role {
         case .branch(let edge):
             return [.intent(.focusBranch(edge, branch: node.path))]
         case .star(let edge):
-            return [.intent(.clickStar(edge, star: node.path, existence: ctx.mapping.exists))]
+            return node.kind == .folder
+                ? [.intent(.clickStar(edge, star: node.path, existence: ctx.mapping.exists))]
+                : [.intent(.copyPath(node.path))]
         case .lensRow:
             return node.kind == .file ? [.intent(.copyPath(node.path))] : enterFolder(node, in: ctx)
         case .floating, .pinnedSlot, .stash:

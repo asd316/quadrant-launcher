@@ -32,14 +32,18 @@ public struct StarItem: Hashable, Sendable {
     public var brightness: Double
     public var isPinned: Bool
     public var hasDrillPath: Bool
+    /// L3 folders under a branch are folders; a level-1 root can spread its direct files as file points (R2.8).
+    public var kind: NodeKind = .folder
 }
 
 public struct StarsResult: Hashable, Sendable {
-    /// The focused branch these stars belong to; nil when nothing is focused (R2.2).
+    /// The focused branch these stars belong to; in root-file mode, the root folder (R2.2, R2.8).
     public var branch: NodePath?
     /// Rank order: pinned first, then weight descending.
     public var items: [StarItem]
     public var truncatedCount: Int
+    /// True when `items` are the direct files of the root folder, not L3 folders under `branch` (R2.8).
+    public var isRootFiles: Bool = false
 
     public static let empty = StarsResult(branch: nil, items: [], truncatedCount: 0)
 }

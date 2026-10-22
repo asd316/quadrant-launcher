@@ -167,7 +167,10 @@ public struct PanelView: View {
             edge: edge, size: size, exclusions: geometry.starExclusions(edge: edge, quadrants: model.quadrants),
             origin: geometry.starOrigin(edge: edge))
         if projection.stars.branch == nil || projection.stars.items.isEmpty {
-            let text = projection.stars.branch == nil ? "点击一个分支目录，显示它的星点" : "没有子文件夹"
+            let stars = projection.stars
+            let text = stars.isRootFiles
+                ? (stars.truncatedCount > 0 ? "窗口太小，放不下文件点" : "这个文件夹没有直接文件")
+                : (stars.branch == nil ? "点击一个分支目录，显示它的星点" : "没有子文件夹")
             let rect = geometry.hintRect(
                 edge: edge, quadrants: model.quadrants, textWidth: estimatedTextWidth(text, size: 12))
             StarHint(text: text, theme: theme)
@@ -223,14 +226,24 @@ public struct PanelView: View {
         .frame(width: size.width, height: size.height)
 
         if let lens = model.lens {
+            let opensAbove = lensOpensAboveStash(lens)
             LensView(lens: lens, selection: model.keyboardSelection, theme: theme, context: context)
                 .transition(
                     reduceMotion
-                        ? .opacity : .opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
-                .frame(width: size.width, height: size.height, alignment: .top)
-                .offset(y: size.height / 2 + PanelGeometry.stashSize.height / 2 + 16)
+                        ? .opacity
+                        : .opacity.combined(with: .scale(scale: 0.97, anchor: opensAbove ? .bottom : .top)))
+                .frame(width: size.width, height: size.height, alignment: opensAbove ? .bottom : .top)
+                .offset(
+                    y: (opensAbove ? -1 : 1)
+                        * (size.height / 2 + PanelGeometry.stashSize.height / 2 + 16))
                 .animation(reduceMotion ? nil : .easeOut(duration: 0.15), value: lens.mode)
         }
+    }
+
+    /// Open the lens away from the quadrant it belongs to, so a bottom root's file points stay visible.
+    private func lensOpensAboveStash(_ lens: LensModel) -> Bool {
+        if case .folder(let edge, _) = lens.mode { return edge == .bottom }
+        return false
     }
 }
 

@@ -176,6 +176,22 @@ private let wbState = state(roots: [.left: F.kbRoot], focus: [F.kbRoot: F.workbe
     #expect(result[.right]?.isEmpty == true)
 }
 
+@Test func r2_8_rootFilesBecomeFilePoints() {
+    let root = "/r/root"
+    let files = (1...8).map { F.file("\(root)/f\($0).txt", modified: F.ago(days: Double($0))) }
+    let snapshot = FolderSnapshot(root: F.folder(root, [F.folder("\(root)/a"), F.folder("\(root)/b")] + files))
+    let result = Projection.project(
+        edge: .top, state: state(roots: [.top: root]),
+        input: EdgeInput(snapshot: snapshot, starCapacity: 3, currentFolder: NodePath(root)),
+        usage: F.index([]), now: F.now, exists: { _ in false })
+    #expect(result.stars.isRootFiles)
+    #expect(result.stars.branch == NodePath(root))
+    #expect(result.stars.items.count == 3)
+    #expect(result.stars.items.allSatisfy { $0.kind == .file })
+    #expect(result.stars.truncatedCount == 5)
+    #expect(result.stars.items.map(\.name) == ["f1.txt", "f2.txt", "f3.txt"])
+}
+
 @Test func r2_2_focusedBranchWithoutSubfoldersHasNoStars() {
     let s = state(roots: [.top: F.downloads], focus: [F.downloads: "\(F.downloads)/安装包"])
     let result = Projection.project(

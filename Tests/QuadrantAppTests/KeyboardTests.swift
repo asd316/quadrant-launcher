@@ -96,6 +96,20 @@ import Testing
         #expect(resolve(.panel(.activate), ctx(lens, selection: np("/r/top/Alpha/note.txt"))) == ["copyPath(/r/top/Alpha/note.txt)"])
     }
 
+    @Test func fileStarActivatesAsFile() {
+        var state = baseState()
+        state.lens.edge = .top
+        state.lens.folders[.top] = np("/r/top")
+        #expect(Selection.find(np("/r/top/readme.txt"), in: ctx(state, selection: nil).model)?.kind == .file)
+        #expect(
+            resolve(.panel(.activate), ctx(state, selection: np("/r/top/readme.txt")))
+                == ["copyPath(/r/top/readme.txt)"])
+        let item = PasteItem(np("/tmp/x.txt"), kind: .file)
+        #expect(
+            resolve(.paste, ctx(state, selection: np("/r/top/readme.txt"), items: [item]))
+                == ["paste([\"/tmp/x.txt\"],stash)"])
+    }
+
     @Test func filterRowFolderOpensItsLensAfterClearingFilter() {
         var state = baseState()
         state.filterText = "docs"

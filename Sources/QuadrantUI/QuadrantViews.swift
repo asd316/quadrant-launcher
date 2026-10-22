@@ -54,6 +54,8 @@ struct RootEntry: View {
     private var name: String { projection?.root?.name ?? "" }
     private var vertical: Bool { edge.isHorizontalSide }
     private var hiddenCount: Int { projection?.branches.hiddenCount ?? 0 }
+    /// R2.8: the root is the source of the starfield when its file points are shown.
+    private var isCurrent: Bool { projection?.currentFolder == projection?.root }
 
     var body: some View {
         ZStack(alignment: vertical ? .bottomTrailing : .topTrailing) {
@@ -115,8 +117,12 @@ struct RootEntry: View {
             }
         }
         .foregroundStyle(unavailable ? theme.broken : theme.title)
-        .background(RoundedRectangle(cornerRadius: 8).fill(hovered && !unavailable ? theme.hover : theme.shelfBackground))
-        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(theme.divider, lineWidth: 1))
+        .background(
+            RoundedRectangle(cornerRadius: 8)
+                .fill(hovered || (isCurrent && !unavailable) ? theme.hover : theme.shelfBackground))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .strokeBorder(isCurrent && !unavailable ? theme.branchText.opacity(0.55) : theme.divider, lineWidth: 1))
     }
 
     /// Side tabs are narrow, so the name turns 90° and keeps the full text readable in the 96px height.
@@ -403,11 +409,18 @@ struct BranchGroup: View {
     let context: UIContext
 
     var body: some View {
-        let items = projection.branches.visualOrder
+        // In root-file mode the starfield no longer belongs to the focused branch, so do not fill it.
+        let items = projection.branches.visualOrder.map { item in
+            var shown = item
+            if projection.stars.isRootFiles { shown.isFocused = false }
+            return shown
+        }
         let more = projection.branches.truncatedCount
+        // In root-file mode the +n belongs to the file points, not the focused branch (R2.8).
+        let starsMore = projection.stars.isRootFiles ? 0 : projection.stars.truncatedCount
         let pills = ForEach(items, id: \.path) { item in
             BranchPill(
-                item: item, edge: edge, starsTruncated: projection.stars.truncatedCount,
+                item: item, edge: edge, starsTruncated: starsMore,
                 selected: selection == item.path, theme: theme, context: context)
         }
         let moreView = Group {
@@ -440,10 +453,19 @@ struct StarView: View {
 
     /// Dot opacity follows brightness (0.25...1); the label stays readable (0.7...1).
     private var labelOpacity: Double { 0.7 + 0.3 * (min(1, max(0.25, item.brightness)) - 0.25) / 0.75 }
+    private var isFolder: Bool { item.kind == .folder }
 
     var body: some View {
         HStack(spacing: 8) {
-            Circle().fill(theme.starLabel).frame(width: 4.5, height: 4.5).opacity(item.brightness)
+            if isFolder {
+                Circle().fill(theme.starLabel).frame(width: 4.5, height: 4.5).opacity(item.brightness)
+            } else {
+                Image(systemName: "doc")
+                    .font(.system(size: 9))
+                    .foregroundStyle(theme.starLabel)
+                    .opacity(labelOpacity)
+                    .frame(width: 4.5, height: 9)
+            }
             Text(item.name)
                 .font(Theme.smallFont)
                 .foregroundStyle(theme.starLabel)
@@ -457,20 +479,29 @@ struct StarView: View {
         .selectionStyle(selected, radius: 5, theme: theme)
         .nodeInteraction(
             InteractionNode(
-                path: item.path, kind: .folder, context: context,
-                onClick: { context.send(.clickStar(edge, item.path)) },
-                onDoubleClick: { context.send(.doubleClick(item.path, .folder)) },
+                path: item.path, kind: item.kind, context: context,
+                onClick: {
+                    // Folders drill in; a file point is selected like any other file (Enter copies its path).
+                    if isFolder { context.send(.clickStar(edge, item.path)) } else { context.send(.select(item.path)) }
+                },
+                onDoubleClick: { context.send(.doubleClick(item.path, item.kind)) },
                 onHover: { hovered = $0 },
                 menu: nodeMenu(
                     path: item.path, context: context,
-                    specific: [
-                        NodeAction(
-                            title: "在透镜里查看全部", icon: .symbol("list.bullet"),
-                            action: { context.send(.openLens(edge, folder: item.path)) }),
-                        item.isPinned
-                            ? NodeAction(title: "取消置顶", icon: .symbol("pin.slash"), action: { context.send(.unpinFolder(item.path)) })
-                            : NodeAction(title: "置顶", icon: .symbol("pin"), action: { context.send(.pinFolder(edge, item.path)) })
-                    ])))
+                    specific: isFolder
+                        ? [
+                            NodeAction(
+                                title: "在透镜里查看全部", icon: .symbol("list.bullet"),
+                                action: { context.send(.openLens(edge, folder: item.path)) }),
+                            item.isPinned
+                                ? NodeAction(title: "取消置顶", icon: .symbol("pin.slash"), action: { context.send(.unpinFolder(item.path)) })
+                                : NodeAction(title: "置顶", icon: .symbol("pin"), action: { context.send(.pinFolder(edge, item.path)) }),
+                        ]
+                        : [
+                            NodeAction(
+                                title: "放进固定位", icon: .symbol("pin"),
+                                action: { context.send(.pinSlot(edge, item.path)) })
+                        ])))
         .help(item.name)
     }
 }

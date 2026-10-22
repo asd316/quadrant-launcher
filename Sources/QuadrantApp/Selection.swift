@@ -29,8 +29,8 @@ enum Selection {
             if q.branches.items.contains(where: { $0.path == path }) {
                 return SelectedNode(path: path, kind: .folder, role: .branch(edge))
             }
-            if q.stars.items.contains(where: { $0.path == path }) {
-                return SelectedNode(path: path, kind: .folder, role: .star(edge))
+            if let star = q.stars.items.first(where: { $0.path == path }) {
+                return SelectedNode(path: path, kind: star.kind, role: .star(edge))
             }
             if q.floating.items.contains(where: { $0.path == path }) {
                 return SelectedNode(path: path, kind: .file, role: .floating(edge))
@@ -57,8 +57,11 @@ enum Selection {
         case .right: edge = .right
         }
         guard let q = model.quadrants[edge] else { return [] }
-        return q.branches.items.map(\.path) + q.stars.items.map(\.path)
-            + q.floating.items.map(\.path) + q.pinnedSlots.map(\.path)
+        // A root file can also sit in the floating shelf; keep one entry so arrow keys do not visit it twice.
+        var seen: Set<NodePath> = []
+        return (q.branches.items.map(\.path) + q.stars.items.map(\.path)
+            + q.floating.items.map(\.path) + q.pinnedSlots.map(\.path))
+            .filter { seen.insert($0).inserted }
     }
 
     /// Next selection for ↑ (`-1`) or ↓ (`+1`). Clamps at both ends; with no selection ↓ takes the first, ↑ the last.
@@ -101,7 +104,8 @@ enum Selection {
     static func pasteTarget(for node: SelectedNode?) -> PasteTarget {
         guard let node, node.kind == .folder else { return .stash }
         switch node.role {
-        case .branch, .star, .lensRow: return .folder(node.path)
+        case .branch, .lensRow: return .folder(node.path)
+        case .star: return node.kind == .folder ? .folder(node.path) : .stash
         case .floating, .pinnedSlot, .stash: return .stash
         }
     }

@@ -19,7 +19,9 @@ let package = Package(
             dependencies: ["QuadrantCore", "QuadrantSystem", "QuadrantUI"]
         ),
         .executableTarget(name: "PanelSpike"),
+        .executableTarget(name: "UIPreview", dependencies: ["QuadrantCore", "QuadrantUI"]),
         .testTarget(name: "QuadrantCoreTests", dependencies: ["QuadrantCore"]),
         .testTarget(name: "QuadrantSystemTests", dependencies: ["QuadrantSystem"]),
+        .testTarget(name: "QuadrantUITests", dependencies: ["QuadrantUI"]),
     ]
 )

@@ -170,6 +170,8 @@ public struct PinRegion: Hashable, Sendable {
 public enum DragOutcome: Hashable, Sendable {
     case otherApp
     case stash
+    /// R7.3, R7.4: dropped on an edge's pinned section; files become pinned slots, folders are rejected.
+    case pinnedShelf(Edge)
     case cancelled
     /// R7.4: dropping on another quadrant is not a valid target; treated as cancel.
     case quadrant(Edge)

@@ -155,6 +155,9 @@ private struct Reducer {
             case .stash:
                 stashAdd(drag.path, drag.kind)
                 restore(drag.snapshot)
+            case .pinnedShelf(let edge):
+                restore(drag.snapshot)
+                handle(.pinSlot(edge, drag.path, kind: drag.kind))
             case .cancelled, .quadrant:
                 restore(drag.snapshot)
             }

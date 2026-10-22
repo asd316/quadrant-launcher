@@ -306,6 +306,25 @@ import Testing
         #expect(mutations(fx).count == 1)
     }
 
+    @Test func r7_3_dropOnPinnedShelfPinsFileAndRestores() {
+        var s = fullPanel()
+        (s, _) = run(s, .beginDrag(p("/r/a/f.pdf"), kind: .file))
+        let (n, fx) = run(s, .endDrag(.pinnedShelf(.left)))
+        #expect(n.display == .full)
+        #expect(n.persistent.pinnedSlots.map(\.targetPath) == [p("/r/a/f.pdf")])
+        #expect(n.persistent.pinnedSlots.first?.edge == .left)
+        #expect(fx.contains(.restoreFull))
+    }
+
+    @Test func r7_4_folderOnPinnedShelfIsRejectedAndRestores() {
+        var s = fullPanel()
+        (s, _) = run(s, .beginDrag(p("/r/a"), kind: .folder))
+        let (n, fx) = run(s, .endDrag(.pinnedShelf(.top)))
+        #expect(n.display == .full)
+        #expect(n.persistent.pinnedSlots.isEmpty)
+        #expect(fx.contains(.showRejection(.pinnedSlotsFilesOnly)))
+    }
+
     @Test func r7_3_cancelRestoresPreDragState() {
         var s = fullPanel()
         (s, _) = run(s, .setFilter("abc"))

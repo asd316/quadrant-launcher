@@ -135,8 +135,9 @@ public struct PanelView: View {
         -> some View
     {
         let projection = model.quadrants[edge]
-        QuadrantTitle(projection: projection, edge: edge, theme: theme, context: context)
-            .anchored(titleAlignment(edge), in: size, dx: titleOffset(edge, geometry).x, dy: titleOffset(edge, geometry).y)
+        let root = geometry.rootRect(edge: edge)
+        RootEntry(projection: projection, edge: edge, theme: theme, context: context)
+            .anchored(.topLeading, in: size, dx: root.minX, dy: root.minY)
 
         if let projection, projection.status != .empty {
             let shelf = geometry.shelfRect(edge: edge)
@@ -177,22 +178,6 @@ public struct PanelView: View {
                 context: context, size: size
             )
             .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: projection.stars.branch)
-        }
-    }
-
-    private func titleAlignment(_ edge: Edge) -> Alignment {
-        switch edge {
-        case .top, .left: .topLeading
-        case .right, .bottom: .topTrailing
-        }
-    }
-
-    private func titleOffset(_ edge: Edge, _ g: PanelGeometry) -> CGPoint {
-        switch edge {
-        case .top: CGPoint(x: g.center.x - 560, y: 20)
-        case .left: CGPoint(x: 22, y: g.center.y + 250)
-        case .right: CGPoint(x: -35, y: g.center.y - 270)
-        case .bottom: CGPoint(x: -150, y: g.size.height - 60)
         }
     }
 

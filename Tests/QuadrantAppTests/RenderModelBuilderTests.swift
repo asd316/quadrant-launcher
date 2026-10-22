@@ -28,6 +28,19 @@ import Testing
         #expect(lens?.isLoading == false)
     }
 
+    @Test func rootLensListsEverythingInThatLevel() {
+        var state = baseState()
+        state.lens.isOpen = true
+        state.lens.edge = .top
+        state.lens.folders[.top] = np("/r/top")
+        state.lens.floor = np("/r/top")
+        let lens = render(state).lens
+        #expect(lens?.mode == .folder(edge: .top, crumbs: [np("/r/top")]))
+        #expect(Set(lens?.rows.map(\.path) ?? []) == [
+            np("/r/top/Alpha"), np("/r/top/Beta"), np("/r/top/readme.txt"),
+        ])
+    }
+
     @Test func deepFolderIsLoadingUntilCacheArrives() {
         var state = baseState()
         state.lens.isOpen = true

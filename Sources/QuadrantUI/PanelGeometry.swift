@@ -10,6 +10,12 @@ struct PanelGeometry {
 
     static let stashSize = CGSize(width: 400, height: 68)
     static let titleTextMax: CGFloat = 170
+    /// Root folder entry around the stash (R2.7). Top/bottom are horizontal pills, left/right vertical tabs.
+    static let rootHorizontalSize = CGSize(width: 220, height: 36)
+    static let rootVerticalSize = CGSize(width: 44, height: 96)
+    static let rootGap: CGFloat = 1
+    /// Distance from the stash to a top/bottom entry, far enough that its corners stay inside the wedge.
+    static let rootCenterGap: CGFloat = 38
     /// Text width cap of a branch pill (truncated with an ellipsis, tooltip shows the full name).
     static let branchTextMax: CGFloat = 96
     static let pillPadding: CGFloat = 20
@@ -45,6 +51,34 @@ struct PanelGeometry {
             width: Self.stashSize.width, height: Self.stashSize.height)
     }
 
+    /// L1 root folder entry (R2.7): four fixed spots surrounding the stash, one per quadrant.
+    func rootRect(edge: Edge) -> CGRect {
+        let gap = Self.rootGap
+        let stash = stashRect
+        switch edge {
+        case .top:
+            return CGRect(
+                x: center.x - Self.rootHorizontalSize.width / 2,
+                y: stash.minY - Self.rootCenterGap - Self.rootHorizontalSize.height,
+                width: Self.rootHorizontalSize.width, height: Self.rootHorizontalSize.height)
+        case .bottom:
+            return CGRect(
+                x: center.x - Self.rootHorizontalSize.width / 2,
+                y: stash.maxY + Self.rootCenterGap,
+                width: Self.rootHorizontalSize.width, height: Self.rootHorizontalSize.height)
+        case .left:
+            return CGRect(
+                x: stash.minX - gap - Self.rootVerticalSize.width,
+                y: center.y - Self.rootVerticalSize.height / 2,
+                width: Self.rootVerticalSize.width, height: Self.rootVerticalSize.height)
+        case .right:
+            return CGRect(
+                x: stash.maxX + gap,
+                y: center.y - Self.rootVerticalSize.height / 2,
+                width: Self.rootVerticalSize.width, height: Self.rootVerticalSize.height)
+        }
+    }
+
     // MARK: Branch groups
 
     static var maxPillWidth: CGFloat { branchTextMax + pillPadding + badgeWidth }
@@ -71,7 +105,8 @@ struct PanelGeometry {
     /// Distance from center to the inner edge of left/right columns, so the worst-case column fits its wedge.
     var columnGap: CGFloat {
         let height = Self.worstColumnHeight(edge: .left)
-        return max(Self.stashSize.width / 2 + 24, (height / 2 * halfW + Self.branchDiagonalInset * norm) / halfH)
+        let roomForRoot = Self.stashSize.width / 2 + Self.rootGap + Self.rootVerticalSize.width + Self.rootGap
+        return max(roomForRoot, (height / 2 * halfW + Self.branchDiagonalInset * norm) / halfH)
     }
 
     /// Frame of the branch group (pills plus "+n"). Anchor positions are fixed; only the extent follows the content.
@@ -130,9 +165,7 @@ struct PanelGeometry {
     func starExclusions(edge: Edge, quadrants: [Edge: EdgeProjection]) -> [CGRect] {
         var rects = [innerHalfPlane(edge: edge), stashRect.insetBy(dx: -Self.stashMargin, dy: -Self.stashMargin)]
         for other in Edge.allCases {
-            rects.append(
-                titleRect(edge: other, width: Self.titleWidth(quadrants[other]))
-                    .insetBy(dx: -Self.exclusionMargin, dy: -Self.exclusionMargin))
+            rects.append(rootRect(edge: other).insetBy(dx: -Self.exclusionMargin, dy: -Self.exclusionMargin))
             if let projection = quadrants[other], projection.status != .empty {
                 rects.append(shelfRect(edge: other).insetBy(dx: -Self.exclusionMargin, dy: -Self.exclusionMargin))
             }
@@ -153,30 +186,6 @@ struct PanelGeometry {
         case .right: preferred = CGPoint(x: o.x + 20 + textWidth / 2, y: o.y)
         }
         return StarfieldLayout.freeRect(edge: edge, size: size, box: box, exclusions: exclusions, near: preferred)
-    }
-
-    // MARK: Titles
-
-    /// Fixed anchor per edge. The 「全部显示」 link sits under the name, so the width is name + icon (+ 「失效」).
-    func titleRect(edge: Edge, width: CGFloat) -> CGRect {
-        let height: CGFloat = 42
-        switch edge {
-        case .top: return CGRect(x: center.x - 560, y: 20, width: width, height: height)
-        case .left: return CGRect(x: 22, y: center.y + 250, width: width, height: height)
-        case .right: return CGRect(x: size.width - 35 - width, y: center.y - 270, width: width, height: height)
-        case .bottom: return CGRect(x: size.width - 150 - width, y: size.height - 60, width: width, height: height)
-        }
-    }
-
-    static func titleWidth(_ projection: EdgeProjection?) -> CGFloat {
-        guard let projection else { return 150 }
-        switch projection.status {
-        case .empty: return 130
-        case .rootUnavailable, .ready:
-            let name = projection.root?.name ?? ""
-            return 24 + min(estimatedTextWidth(name, size: 18), titleTextMax)
-                + (projection.status == .rootUnavailable ? 40 : 0)
-        }
     }
 
     // MARK: Shelf

@@ -44,7 +44,7 @@ private func elements(size: CGSize) -> [Element] {
     for edge in Edge.allCases {
         guard let projection = quadrants[edge] else { continue }
         all.append(Element(edge: edge, name: "branches", rect: g.branchRect(edge: edge, projection: projection), mustBeInWedge: true))
-        all.append(Element(edge: edge, name: "title", rect: g.titleRect(edge: edge, width: PanelGeometry.titleWidth(projection)), mustBeInWedge: true))
+        all.append(Element(edge: edge, name: "root", rect: g.rootRect(edge: edge), mustBeInWedge: true))
         all.append(Element(edge: edge, name: "shelf", rect: g.shelfRect(edge: edge), mustBeInWedge: true))
         for text in ["点击一个分支目录，显示它的星点", "没有子文件夹"] {
             let rect = g.hintRect(edge: edge, quadrants: quadrants, textWidth: estimatedTextWidth(text, size: 12))
@@ -87,6 +87,14 @@ func elementsStayInsideTheirWedgeAndOnScreen(size: CGSize) {
 
 @Test func pillLabelWidthIsCapped() {
     #expect(PanelGeometry.pillWidth(name: String(repeating: "W", count: 80), hasBadge: false) <= 128 + 20)
+}
+
+@Test func rootEntriesSurroundTheStash() {
+    let g = PanelGeometry(size: screens[2])
+    #expect(g.rootRect(edge: .top).maxY < g.stashRect.minY)
+    #expect(g.rootRect(edge: .bottom).minY > g.stashRect.maxY)
+    #expect(g.rootRect(edge: .left).maxX < g.stashRect.minX)
+    #expect(g.rootRect(edge: .right).minX > g.stashRect.maxX)
 }
 
 private func projection(_ edge: Edge, names: [String], more: Int = 0, focusedBadge: Bool = false) -> EdgeProjection {

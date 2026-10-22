@@ -38,46 +38,110 @@ struct MoreButton: View {
     }
 }
 
-// MARK: Title
+// MARK: Root folder entry
 
-struct QuadrantTitle: View {
+/// L1 root folder entry (R2.7): a clickable pill around the stash. Clicking opens the lens on the root,
+/// so the user sees everything directly inside that one-level folder.
+struct RootEntry: View {
     let projection: EdgeProjection?
     let edge: Edge
     let theme: Theme
     let context: UIContext
+    @State private var hovered = false
+
+    private var status: EdgeStatus { projection?.status ?? .empty }
+    private var unavailable: Bool { status == .rootUnavailable }
+    private var name: String { projection?.root?.name ?? "" }
+    private var vertical: Bool { edge.isHorizontalSide }
+    private var hiddenCount: Int { projection?.branches.hiddenCount ?? 0 }
 
     var body: some View {
-        switch projection?.status ?? .empty {
-        case .empty:
-            Text("未设置常驻文件夹").font(Theme.smallFont).foregroundStyle(theme.hint.opacity(0.7))
-        case .rootUnavailable, .ready:
-            let unavailable = projection?.status == .rootUnavailable
-            VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: 7) {
-                    Image(systemName: "folder").font(.system(size: 17))
-                    Text(projection?.root?.name ?? "")
+        ZStack(alignment: vertical ? .bottomTrailing : .topTrailing) {
+            switch status {
+            case .empty:
+                emptyEntry
+            case .rootUnavailable, .ready:
+                Button(action: open) { entry }
+                    .buttonStyle(.plain)
+                    .disabled(unavailable)
+                    .onHover { hovered = $0 }
+                    .help(unavailable ? "常驻文件夹不存在" : (projection?.root?.raw ?? ""))
+            }
+            if hiddenCount > 0 {
+                Button {
+                    context.send(.showAllBranches(edge))
+                } label: {
+                    Image(systemName: "eye").font(.system(size: 10, weight: .medium))
+                        .frame(width: 18, height: 18)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(theme.shelfText)
+                .help("全部显示被隐藏的分支目录")
+                .padding(2)
+            }
+        }
+    }
+
+    private func open() {
+        guard !unavailable, let root = projection?.root else { return }
+        context.send(.openLens(edge, folder: root))
+    }
+
+    private var entry: some View {
+        Group {
+            if vertical {
+                VStack(spacing: 5) {
+                    Image(systemName: "folder").font(.system(size: 13))
+                    rotatedName
+                }
+                .frame(width: PanelGeometry.rootVerticalSize.width, height: PanelGeometry.rootVerticalSize.height)
+            } else {
+                HStack(spacing: 8) {
+                    Image(systemName: "folder").font(.system(size: 16))
+                    Text(name)
                         .font(Theme.titleFont)
                         .lineLimit(1)
                         .truncationMode(.tail)
-                        .frame(maxWidth: PanelGeometry.titleTextMax, alignment: .leading)
-                        .fixedSize(horizontal: true, vertical: false)
                         .strikethrough(unavailable)
+                        .frame(maxWidth: PanelGeometry.titleTextMax, alignment: .leading)
                     if unavailable {
                         Text("失效").font(Theme.smallFont)
                     }
                 }
-                .foregroundStyle(unavailable ? theme.broken : theme.title)
-                .help(projection?.root?.raw ?? "")
-                if let hidden = projection?.branches.hiddenCount, hidden > 0 {
-                    Button("全部显示") { context.send(.showAllBranches(edge)) }
-                        .buttonStyle(.plain)
-                        .font(Theme.smallFont)
-                        .foregroundStyle(theme.shelfText)
-                        .underline()
-                        .padding(.leading, 24)
-                }
+                .padding(.horizontal, 10)
+                .frame(
+                    width: PanelGeometry.rootHorizontalSize.width, height: PanelGeometry.rootHorizontalSize.height,
+                    alignment: .leading)
             }
         }
+        .foregroundStyle(unavailable ? theme.broken : theme.title)
+        .background(RoundedRectangle(cornerRadius: 8).fill(hovered && !unavailable ? theme.hover : theme.shelfBackground))
+        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(theme.divider, lineWidth: 1))
+    }
+
+    /// Side tabs are narrow, so the name turns 90° and keeps the full text readable in the 96px height.
+    private var rotatedName: some View {
+        Text(name)
+            .font(Theme.rowFont)
+            .lineLimit(1)
+            .truncationMode(.tail)
+            .strikethrough(unavailable)
+            .frame(width: PanelGeometry.rootVerticalSize.height - 18, height: 18)
+            .rotationEffect(.degrees(90))
+            .frame(width: PanelGeometry.rootVerticalSize.width, height: PanelGeometry.rootVerticalSize.height - 18)
+    }
+
+    private var emptyEntry: some View {
+        Text(vertical ? "未设置\n常驻\n文件夹" : "未设置常驻文件夹")
+            .font(Theme.smallFont)
+            .multilineTextAlignment(.center)
+            .foregroundStyle(theme.hint.opacity(0.7))
+            .frame(
+                width: vertical ? PanelGeometry.rootVerticalSize.width : PanelGeometry.rootHorizontalSize.width,
+                height: vertical ? PanelGeometry.rootVerticalSize.height : PanelGeometry.rootHorizontalSize.height)
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .strokeBorder(theme.stashDash, style: StrokeStyle(lineWidth: 1, dash: [4, 3])))
     }
 }
 

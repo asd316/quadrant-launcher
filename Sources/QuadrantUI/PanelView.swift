@@ -35,8 +35,6 @@ public struct PanelView: View {
         return ZStack(alignment: .topLeading) {
             ZStack(alignment: .topLeading) {
                 background(theme: theme, size: size)
-                    .contentShape(Rectangle())
-                    .onTapGesture { send(.backgroundClicked) }
                 ZStack(alignment: .topLeading) {
                     ForEach(Edge.allCases, id: \.self) { edge in
                         quadrant(edge, size: size, geometry: geometry, theme: theme, context: context)

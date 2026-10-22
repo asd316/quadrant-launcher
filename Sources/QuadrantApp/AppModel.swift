@@ -162,7 +162,6 @@ final class AppModel {
             case .reveal(let path): NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path.raw)])
             case .starCapacity(let edge, let count):
                 starCapacity[edge] = max(0, count)
-            case .dismissPanel: closePanel()
             }
         }
         rebuild()

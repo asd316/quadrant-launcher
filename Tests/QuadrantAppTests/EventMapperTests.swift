@@ -43,9 +43,6 @@ import Testing
         #expect(map(.lensEnter(np("/r/top/Alpha/Docs"))) == ["lensEnter(/r/top/Alpha/Docs)"])
     }
 
-    @Test func backgroundClickDismissesPanel() {
-        #expect(map(.backgroundClicked) == ["dismissPanel"])
-    }
 
     @Test func pinnedShelfDropReachesCore() {
         #expect(map(.dragEnded(.pinnedShelf(.left))) == ["endDrag(pinnedShelf(QuadrantCore.Edge.left))"])

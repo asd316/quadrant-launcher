@@ -121,8 +121,6 @@ public enum UIEvent: Sendable, Equatable {
     case dragEnded(DragOutcome)
     /// How many named stars fit in this edge's wedge at the current screen size (Data-Model › 展示上限).
     case starCapacityMeasured(Edge, Int)
-    /// Click on empty panel background: closes the panel (Design-Principles › Implementation notes).
-    case backgroundClicked
 }
 
 /// Places that accept a drop during a drag (R7.2–R7.4). While half-hidden the main panel is transparent

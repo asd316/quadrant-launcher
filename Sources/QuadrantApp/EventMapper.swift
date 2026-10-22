@@ -9,8 +9,6 @@ enum AppCommand {
     case select(NodePath?)
     case reveal(NodePath)
     case starCapacity(Edge, Int)
-    /// Close the panel from wherever it is (click on the background).
-    case dismissPanel
 }
 
 /// Read-only view of the current state, enough to map events without touching AppKit.
@@ -33,7 +31,7 @@ enum EventMapper {
             return [.intent(.openLens(edge, folder: folder))]
         case .select(let path):
             return [.select(path)]
-        case .doubleClick(let path, let kind):
+        case .doubleClick(let path, _):
             // R7.6: files open with their app, folders open in Finder; both close the panel.
             return [.intent(.open(path))]
         case .copyPath(let path):
@@ -64,8 +62,6 @@ enum EventMapper {
             return [.intent(.endDrag(outcome))]
         case .starCapacityMeasured(let edge, let count):
             return [.starCapacity(edge, count)]
-        case .backgroundClicked:
-            return [.dismissPanel]
         }
     }
 

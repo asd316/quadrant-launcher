@@ -90,7 +90,7 @@ public struct FolderSnapshot: Hashable, Sendable {
     }
 }
 
-/// Usage actions from Domain-Model R1.1. Raw values are the `usage_event.action` column values.
+/// Usage actions from Domain-Model R1.1 and R8.8. Raw values are the `usage_event.action` column values.
 public enum UsageAction: String, Sendable, Codable, CaseIterable {
     case focusBranch = "focus_branch"
     case openStar = "open_star"
@@ -99,6 +99,8 @@ public enum UsageAction: String, Sendable, Codable, CaseIterable {
     case dragOut = "drag_out"
     case open = "open"
     case stash = "stash"
+    /// R8.8: recorded on the destination folder.
+    case copyTo = "copy_to"
 }
 
 public struct UsageEvent: Hashable, Sendable, Codable {

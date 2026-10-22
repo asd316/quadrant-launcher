@@ -41,6 +41,7 @@ Swift 6 语言模式，严格并发检查。
 | 并发逃生口检查 | `Scripts/check-escape-hatches.sh` |
 | 双击启动面板 | `Launch Quadrant.command`（编译后重启应用，确保看到新版本） |
 | 打包 DMG | `Scripts/package-dmg.sh [版本]`（release 构建 + ad-hoc 签名，输出 `dist/Quadrant Launcher <版本>.dmg`） |
+| Raycast 快捷键 | 把 `Scripts/Raycast` 加到 Raycast Script Commands，快捷键绑 `⌃D`（走 `quadrant-launcher://toggle`） |
 
 多个 agent 同时编译时，各自加 `--scratch-path .build-<名字>`，避免抢同一个 `.build` 锁。如果测试进程以 signal 11 崩溃、而代码看不出问题，多半是共享的 `.build` 里留下了新旧混杂的产物：先跑 `swift package clean` 再测。
 

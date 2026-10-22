@@ -56,10 +56,23 @@ cat > "$APP/Contents/Info.plist" <<PLIST
     <string>????</string>
     <key>CFBundleVersion</key>
     <string>$BUILD_NUMBER</string>
+    <key>CFBundleURLTypes</key>
+    <array>
+        <dict>
+            <key>CFBundleURLName</key>
+            <string>$BUNDLE_ID</string>
+            <key>CFBundleURLSchemes</key>
+            <array>
+                <string>quadrant-launcher</string>
+            </array>
+        </dict>
+    </array>
     <key>LSApplicationCategoryType</key>
     <string>public.app-category.productivity</string>
     <key>LSMinimumSystemVersion</key>
     <string>15.0</string>
+    <key>LSMultipleInstancesProhibited</key>
+    <true/>
     <key>LSUIElement</key>
     <true/>
     <key>NSHighResolutionCapable</key>

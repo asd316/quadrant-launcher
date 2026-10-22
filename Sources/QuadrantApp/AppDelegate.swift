@@ -10,9 +10,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var hotkey: any GlobalHotkey = AppDelegate.makeHotkey()
     /// Retained for the whole launch; `kill -USR1` shows the panel (used by `Launch Quadrant.command`).
     private var launcherSignal: DispatchSourceSignal?
+    /// URL/open events during the first seconds belong to this launch, not to a toggle.
+    private var isColdLaunch = true
 
     /// Seam: return the KeyboardShortcuts-backed hotkey here once full Xcode is available.
     private static func makeHotkey() -> any GlobalHotkey { NoGlobalHotkey() }
+
+    func applicationWillFinishLaunching(_ notification: Notification) {
+        // Double-clicking the app in Finder, or opening a quadrant-launcher:// URL, arrives as an Apple event.
+        let manager = NSAppleEventManager.shared()
+        manager.setEventHandler(
+            self, andSelector: #selector(handleOpenApplication(_:withReplyEvent:)),
+            forEventClass: Self.coreEventClass, andEventID: Self.openApplicationEvent)
+        manager.setEventHandler(
+            self, andSelector: #selector(handleGetURL(_:withReplyEvent:)),
+            forEventClass: Self.internetEventClass, andEventID: Self.getURLEvent)
+    }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         model.start()
@@ -35,6 +48,42 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 NSApp.terminate(nil)
             }
         }
+        // A cold launch shows the panel: Finder double-click and Raycast's cold URL both land here.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { [weak self] in
+            guard let self else { return }
+            self.model.showPanel()
+            self.isColdLaunch = false
+        }
+    }
+
+    /// Double-clicking the already-running app in Finder / LaunchServices reopen.
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        model.showPanel()
+        return true
+    }
+
+    // MARK: Apple events
+
+    private static let coreEventClass = AEEventClass(0x61657674) // 'aevt'
+    private static let internetEventClass = AEEventClass(0x4755524C) // 'GURL'
+    private static let openApplicationEvent = AEEventID(0x6F617070) // 'oapp'
+    private static let getURLEvent = AEEventID(0x4755524C) // 'GURL'
+    private static let directObjectKey = AEKeyword(0x2D2D2D2D) // '----'
+
+    @objc private func handleOpenApplication(
+        _ event: NSAppleEventDescriptor, withReplyEvent reply: NSAppleEventDescriptor
+    ) {
+        if !isColdLaunch { model.showPanel() }
+    }
+
+    /// `quadrant-launcher://toggle` is the Raycast bridge: a running app toggles, a cold launch opens.
+    @objc private func handleGetURL(
+        _ event: NSAppleEventDescriptor, withReplyEvent reply: NSAppleEventDescriptor
+    ) {
+        guard let raw = event.paramDescriptor(forKeyword: Self.directObjectKey)?.stringValue,
+              let url = URL(string: raw), url.scheme == "quadrant-launcher"
+        else { return }
+        if !isColdLaunch { model.togglePanel() }
     }
 
     // MARK: Launcher

@@ -1,7 +1,7 @@
 import Foundation
 
 // Types of the Core state machine. See docs/03-tech-design/Data-Model（数据结构与接口契约）.md "Contracts".
-// Rules: Domain-Model R1.1, R3–R7.
+// Rules: Domain-Model R1.1, R3–R8.
 
 public enum PanelDisplay: Hashable, Sendable {
     case closed
@@ -84,6 +84,8 @@ public struct PanelState: Hashable, Sendable {
     /// Quadrants whose root folder was reported missing (R6.3). Reported, never auto-replaced.
     public var missingRoots: Set<Edge>
     public var drag: DragSession?
+    /// Copy-to jobs the System is still running (R8.7); the UI shows progress at the center while non-empty.
+    public var copies: [CopyJob]
 
     public init(
         persistent: PersistentState = PersistentState(),
@@ -93,7 +95,8 @@ public struct PanelState: Hashable, Sendable {
         lensOpenBeforeFilter: Bool? = nil,
         region: KeyboardRegion = .center,
         missingRoots: Set<Edge> = [],
-        drag: DragSession? = nil
+        drag: DragSession? = nil,
+        copies: [CopyJob] = []
     ) {
         self.persistent = persistent
         self.display = display
@@ -103,8 +106,48 @@ public struct PanelState: Hashable, Sendable {
         self.region = region
         self.missingRoots = missingRoots
         self.drag = drag
+        self.copies = copies
     }
 }
+
+/// A copy-to started by R8.2 and not yet reported finished (R8.7).
+public struct CopyJob: Hashable, Sendable {
+    public var sources: [NodePath]
+    public var destination: NodePath
+}
+
+/// A node resolved by the App from the pasteboard (existing path plus its kind).
+public struct PasteItem: Hashable, Sendable {
+    public var path: NodePath
+    public var kind: NodeKind
+    public init(_ path: NodePath, kind: NodeKind) {
+        self.path = path
+        self.kind = kind
+    }
+}
+
+/// Where a paste goes: the keyboard-selected quadrant folder (R8.2) or the stash (R8.3).
+public enum PasteTarget: Hashable, Sendable {
+    case folder(NodePath)
+    case stash
+}
+
+/// System's report for a finished copy-to (R8.7).
+public enum CopyResult: Hashable, Sendable {
+    /// Names of the items created in the destination.
+    case success(copiedNames: [String])
+    /// Human-readable reason. System has already removed incomplete copies.
+    case failure(reason: String)
+}
+
+/// Transient message shown in place (R8.7). Rejections are refusals; notices report outcomes.
+public enum Notice: Hashable, Sendable {
+    /// 「已复制到 <folder name>」
+    case copiedTo(folderName: String)
+    /// 「复制失败：<reason>」
+    case copyFailed(reason: String)
+}
+
 
 /// Existence check the UI/System supplies so Core stays pure (R6.2). Defaults to "everything exists".
 public struct PathExistence: Sendable {
@@ -169,6 +212,13 @@ public enum Intent: Sendable {
     // Roots
     case setRoot(Edge, NodePath?)
     case reportRootMissing(Edge, Bool)
+    // Paste and copy (R8)
+    /// R8.1: ⌘C on the selected node.
+    case copyNode(NodePath, kind: NodeKind)
+    /// R8.2-R8.4, R8.6: ⌘V. `items` are already resolved to existing paths by the App (empty = nothing usable).
+    case paste(items: [PasteItem], target: PasteTarget)
+    /// R8.7, R8.8: System reports a copy-to started by `Effect.copyTo`.
+    case copyFinished(destination: NodePath, result: CopyResult)
 }
 
 public enum Rejection: Hashable, Sendable {
@@ -178,6 +228,10 @@ public enum Rejection: Hashable, Sendable {
     case pinnedSlotsFull(Edge, capacity: Int)
     /// R4.3 / R3.5: pinned slots hold files only.
     case pinnedSlotsFilesOnly
+    /// R8.4: pasteboard holds no existing file or path. UI text: 剪贴板里没有可用的文件或路径
+    case clipboardEmpty
+    /// R8.6: destination is inside a source folder. UI text: 不能复制到它自己里面
+    case copyIntoItself
 }
 
 /// Core → App. One case per row of the Data-Model "副作用" table.
@@ -188,6 +242,12 @@ public enum Effect: Hashable, Sendable {
     case openWithDefaultApp(NodePath)
     case loadChildren(NodePath)
     case showRejection(Rejection)
+    /// R8.7: outcome message (「已复制到 <name>」 / failure reason).
+    case showNotice(Notice)
+    /// R8.1: put the node on the pasteboard as file reference plus path text. Panel stays open.
+    case writeNodeToPasteboard(NodePath, kind: NodeKind)
+    /// R8.2: System copies in the background (R8.5 renaming, cleanup on failure), then sends `copyFinished`.
+    case copyTo(sources: [NodePath], destination: NodePath)
     case closePanel
     case enterHalfHidden
     case restoreFull

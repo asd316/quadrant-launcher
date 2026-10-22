@@ -7,7 +7,7 @@ private typealias F = Fixture
 
 @Test func r1_1_everyActionIsWorthOne() {
     let events = UsageAction.allCases.map { F.event("/a/f", $0) }
-    #expect(abs(F.index(events).score(of: NodePath("/a/f")) - 7) < 1e-9)
+    #expect(abs(F.index(events).score(of: NodePath("/a/f")) - Double(UsageAction.allCases.count)) < 1e-9)
 }
 
 @Test func r1_3_halfLifeHalvesScore() {

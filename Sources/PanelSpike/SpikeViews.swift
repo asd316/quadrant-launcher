@@ -48,8 +48,6 @@ final class SpikeRootView: NSView {
 @MainActor
 final class StashView: NSView {
     var onDrop: (() -> Void)?
-    /// Set only while a drag-in from another app is in progress.
-    var onExternalDrop: (() -> Void)?
 
     init() {
         super.init(frame: .zero)
@@ -80,12 +78,7 @@ final class StashView: NSView {
     override func performDragOperation(_ sender: any NSDraggingInfo) -> Bool {
         let urls = sender.draggingPasteboard.readObjects(forClasses: [NSURL.self]) as? [URL] ?? []
         spikeLog("stash received: \(urls.map(\.path))")
-        if let external = onExternalDrop {
-            onExternalDrop = nil
-            external()
-        } else {
-            onDrop?()
-        }
+        onDrop?()
         return true
     }
 }
@@ -184,28 +177,4 @@ final class FileRowView: NSView, NSDraggingSource {
 
 func spikeLog(_ message: String) {
     FileHandle.standardOutput.write(Data("[PanelSpike] \(message)\n".utf8))
-}
-
-/// Covers the menu bar button so a drag coming from another app can open the panel (drag-in, K3).
-/// Clicks are passed on to the button so its menu still works.
-@MainActor
-final class StatusDropView: NSView {
-    var onDragEntered: (() -> Void)?
-    weak var button: NSStatusBarButton?
-
-    override init(frame: NSRect) {
-        super.init(frame: frame)
-        registerForDraggedTypes([.fileURL])
-        autoresizingMask = [.width, .height]
-    }
-
-    required init?(coder: NSCoder) { fatalError("not used") }
-
-    override func mouseDown(with event: NSEvent) { button?.performClick(nil) }
-
-    override func draggingEntered(_ sender: any NSDraggingInfo) -> NSDragOperation {
-        spikeLog("menu bar button draggingEntered: opening stash")
-        onDragEntered?()
-        return .copy
-    }
 }

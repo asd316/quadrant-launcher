@@ -385,3 +385,86 @@ import Testing
         #expect(n == PanelState() && fx.isEmpty)
     }
 }
+
+// R8 paste and copy
+@Suite struct ReducerPasteTests {
+    let dest = p("/r/a")
+    let f1 = PasteItem(p("/x/one.pdf"), kind: .file)
+    let f2 = PasteItem(p("/x/dir"), kind: .folder)
+
+    @Test func r8_1_copyNodeWritesPasteboardKeepsPanelOpenNoUsage() {
+        let (n, fx) = run(fullPanel(), .copyNode(p("/x/one.pdf"), kind: .file))
+        #expect(fx == [.writeNodeToPasteboard(p("/x/one.pdf"), kind: .file)])
+        #expect(n.display == .full)
+        #expect(usageEvents(fx).isEmpty)
+    }
+
+    @Test func r8_2_pasteOnFolderEmitsCopyToKeepsPanelOpen() {
+        let (n, fx) = run(fullPanel(), .paste(items: [f1, f2], target: .folder(dest)))
+        #expect(fx == [.copyTo(sources: [f1.path, f2.path], destination: dest)])
+        #expect(n.display == .full)
+        #expect(n.persistent.stash.isEmpty)
+    }
+
+    @Test func r8_3_pasteToStashAddsInOrderAndEvicts() {
+        let old = (1...3).map { stashItem("/s/\($0)", t0.addingTimeInterval(Double($0))) }
+        let s = fullPanel(PersistentState(stash: old))
+        let (n, fx) = run(s, .paste(items: [f1, f2], target: .stash))
+        #expect(n.persistent.stash.map(\.targetPath) == [p("/s/3"), f1.path, f2.path]) // R4.1: oldest evicted
+        #expect(usageEvents(fx).map(\.action) == [.stash, .stash])
+        #expect(!fx.contains { if case .copyTo = $0 { true } else { false } })
+    }
+
+    @Test func r8_4_emptyPasteRejectedForBothTargets() {
+        for target in [PasteTarget.stash, .folder(dest)] {
+            let (n, fx) = run(fullPanel(), .paste(items: [], target: target))
+            #expect(fx == [.showRejection(.clipboardEmpty)])
+            #expect(n.persistent.stash.isEmpty)
+            #expect(n.copies.isEmpty)
+        }
+    }
+
+    @Test func r8_6_pasteIntoItselfOrDescendantRejectedCopiesNothing() {
+        let parent = PasteItem(p("/r"), kind: .folder)
+        let same = PasteItem(dest, kind: .folder)
+        for bad in [parent, same] {
+            let (n, fx) = run(fullPanel(), .paste(items: [f1, bad], target: .folder(dest)))
+            #expect(fx == [.showRejection(.copyIntoItself)])
+            #expect(n.copies.isEmpty)
+        }
+    }
+
+    @Test func r8_6_siblingWithSharedPrefixIsNotAncestor() {
+        let (_, fx) = run(fullPanel(), .paste(items: [PasteItem(p("/r/a b"), kind: .folder)], target: .folder(dest)))
+        #expect(fx == [.copyTo(sources: [p("/r/a b")], destination: dest)])
+    }
+
+    @Test func r8_7_progressTrackedUntilFinished() {
+        let (n, _) = run(fullPanel(), .paste(items: [f1], target: .folder(dest)))
+        #expect(n.copies == [CopyJob(sources: [f1.path], destination: dest)])
+        let (done, _) = run(n, .copyFinished(destination: dest, result: .success(copiedNames: ["one.pdf"])))
+        #expect(done.copies.isEmpty)
+    }
+
+    @Test func r8_7_successShowsNoticeWithFolderName() {
+        let (_, fx) = run(fullPanel(), .copyFinished(destination: dest, result: .success(copiedNames: ["one.pdf"])))
+        #expect(fx.contains(.showNotice(.copiedTo(folderName: "a"))))
+    }
+
+    @Test func r8_7_failureShowsReasonClearsProgressNoUsage() {
+        let (n, _) = run(fullPanel(), .paste(items: [f1], target: .folder(dest)))
+        let (done, fx) = run(n, .copyFinished(destination: dest, result: .failure(reason: "磁盘已满")))
+        #expect(fx == [.showNotice(.copyFailed(reason: "磁盘已满"))])
+        #expect(done.copies.isEmpty)
+    }
+
+    @Test func r8_8_successRecordsCopyToOnDestination() {
+        let (_, fx) = run(fullPanel(), .copyFinished(destination: dest, result: .success(copiedNames: ["x"])))
+        #expect(usageEvents(fx) == [UsageEvent(path: dest, action: .copyTo, occurredAt: t1)])
+    }
+
+    @Test func r8_8_finishedAfterPanelClosedStillRecords() {
+        let (_, fx) = run(PanelState(), .copyFinished(destination: dest, result: .success(copiedNames: ["x"])))
+        #expect(usageEvents(fx).map(\.action) == [.copyTo])
+    }
+}

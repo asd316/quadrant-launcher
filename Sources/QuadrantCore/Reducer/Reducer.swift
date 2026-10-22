@@ -228,6 +228,41 @@ private struct Reducer {
         case .reportRootMissing(let edge, let missing):
             // R6.3: state only; the root is never replaced automatically.
             if missing { state.missingRoots.insert(edge) } else { state.missingRoots.remove(edge) }
+
+        case .copyNode(let path, let kind):
+            guard isFull else { return }
+            effects.append(.writeNodeToPasteboard(path, kind: kind)) // R8.1: no usage record, panel stays open
+
+        case .paste(let items, let target):
+            guard isFull else { return }
+            guard !items.isEmpty else {
+                effects.append(.showRejection(.clipboardEmpty)) // R8.4
+                return
+            }
+            switch target {
+            case .stash:
+                for item in items { stashAdd(item.path, item.kind) } // R8.3 + R4.1
+            case .folder(let dest):
+                // R8.6: a source that is the destination or contains it cannot be copied into it.
+                guard !items.contains(where: { $0.path == dest || $0.path.isAncestor(of: dest) }) else {
+                    effects.append(.showRejection(.copyIntoItself))
+                    return
+                }
+                let sources = items.map(\.path)
+                state.copies.append(CopyJob(sources: sources, destination: dest)) // R8.7
+                effects.append(.copyTo(sources: sources, destination: dest)) // R8.2
+            }
+
+        case .copyFinished(let dest, let result):
+            // Works while the panel is closed: the copy runs in the background (R8.7).
+            if let i = state.copies.firstIndex(where: { $0.destination == dest }) { state.copies.remove(at: i) }
+            switch result {
+            case .success:
+                usage(dest, .copyTo) // R8.8
+                effects.append(.showNotice(.copiedTo(folderName: (dest.raw as NSString).lastPathComponent)))
+            case .failure(let reason):
+                effects.append(.showNotice(.copyFailed(reason: reason)))
+            }
         }
     }
 

@@ -39,7 +39,7 @@ Swift 6 语言模式，严格并发检查。
 | 编译 | `swift build` |
 | 测试 | `Scripts/test.sh`（参数原样传给 `swift test`，例如 `--filter Reducer`） |
 | 并发逃生口检查 | `Scripts/check-escape-hatches.sh` |
-| 双击启动面板 | `Launch Quadrant.command`（已在运行时发 `SIGUSR1` 唤起，不重启） |
+| 双击启动面板 | `Launch Quadrant.command`（编译后重启应用，确保看到新版本） |
 
 多个 agent 同时编译时，各自加 `--scratch-path .build-<名字>`，避免抢同一个 `.build` 锁。如果测试进程以 signal 11 崩溃、而代码看不出问题，多半是共享的 `.build` 里留下了新旧混杂的产物：先跑 `swift package clean` 再测。
 

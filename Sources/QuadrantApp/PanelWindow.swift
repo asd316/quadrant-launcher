@@ -1,4 +1,5 @@
 import AppKit
+import CoreGraphics
 import QuadrantCore
 import QuadrantUI
 import SwiftUI
@@ -173,14 +174,46 @@ final class PanelWindowController: PanelWindowControlling {
     }
 
     func stepBehind() {
-        // Stays ordered in, visible and non-activating, and keeps accepting drags from other apps.
+        // Stays ordered in and visible, but drops below normal-level windows so Finder is really on top.
+        // Lowering the level alone is not enough when Finder is already the active app: the panel was ordered
+        // front while floating, so it must be sent behind and give up key status too.
         panel.isFloatingPanel = false
         panel.level = .normal
         panel.ignoresMouseEvents = false
         panel.alphaValue = 1
+        panel.resignKey()
+        NSApp.deactivate()
+        // Sit right below Finder's front window instead of behind every normal window, so the rest of the
+        // panel stays visible while Finder is on top (R7.7). With no Finder window yet, stay in front of the
+        // normal level: the window that opens next is Finder's and lands above.
+        if let finderWindow = Self.frontFinderWindowNumber() {
+            panel.order(.below, relativeTo: finderWindow)
+        }
+    }
+
+    /// Window number of Finder's frontmost normal window, for ordering the panel just below it.
+    private static func frontFinderWindowNumber() -> Int? {
+        guard let finder = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.finder").first
+        else { return nil }
+        let options: CGWindowListOption = [.optionOnScreenOnly, .excludeDesktopElements]
+        guard let windows = CGWindowListCopyWindowInfo(options, kCGNullWindowID) as? [[String: Any]] else {
+            return nil
+        }
+        for window in windows {
+            guard let pid = window[kCGWindowOwnerPID as String] as? pid_t,
+                  pid == finder.processIdentifier,
+                  (window[kCGWindowLayer as String] as? Int) == 0,
+                  let bounds = window[kCGWindowBounds as String] as? [String: Any],
+                  (bounds["Height"] as? Double ?? 0) > 100,
+                  let number = window[kCGWindowNumber as String] as? Int
+            else { continue }
+            return number
+        }
+        return nil
     }
 
     func bringToFront() {
+        NSApp.activate()
         raiseLevel()
         panel.ignoresMouseEvents = false
         panel.orderFrontRegardless()

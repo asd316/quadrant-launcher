@@ -52,6 +52,7 @@ public enum Projection {
             stars: projectStars(
                 snapshot: snapshot, state: state, focus: focus, capacity: input.starCapacity, usage: usage, now: now),
             floating: projectFloating(input: input, usage: usage, now: now),
+            currentFolder: input.currentFolder,
             pinnedSlots: pinnedSlots)
     }
 

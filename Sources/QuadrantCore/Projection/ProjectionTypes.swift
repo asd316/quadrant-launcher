@@ -78,6 +78,9 @@ public struct EdgeProjection: Hashable, Sendable {
     public var branches: BranchesResult
     public var stars: StarsResult
     public var floating: FloatingResult
+    /// Folder the floating slots show. It stays on the last folder opened in the lens after the lens closes,
+    /// so its "+n" can open that same folder (R2.6).
+    public var currentFolder: NodePath? = nil
     public var pinnedSlots: [PinnedSlotItem]
 
     public var isEmpty: Bool { status == .empty }

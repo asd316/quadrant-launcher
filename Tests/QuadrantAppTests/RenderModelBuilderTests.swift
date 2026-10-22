@@ -50,8 +50,25 @@ import Testing
         state.lens.edge = .top
         state.lens.folders[.top] = np("/r/top/Alpha/Docs")
         let cache = [np("/r/top/Alpha/Docs"): [file("/r/top/Alpha/Docs/spec.md")]]
-        let floating = render(state, cache: cache).quadrants[.top]?.floating.items.map(\.path)
-        #expect(floating == [np("/r/top/Alpha/Docs/spec.md")])
+        let top = render(state, cache: cache).quadrants[.top]
+        #expect(top?.floating.items.map(\.path) == [np("/r/top/Alpha/Docs/spec.md")])
+        #expect(top?.currentFolder == np("/r/top/Alpha/Docs"))
+    }
+
+    @Test func floatingKeepsLastLensFolderAfterLensCloses() {
+        var state = baseState()
+        state.lens.edge = nil
+        state.lens.isOpen = false
+        state.lens.folders[.top] = np("/r/top/Alpha/Docs")
+        let cache = [np("/r/top/Alpha/Docs"): [file("/r/top/Alpha/Docs/spec.md")]]
+        let model = render(state, cache: cache)
+        #expect(model.lens == nil)
+        #expect(model.quadrants[.top]?.currentFolder == np("/r/top/Alpha/Docs"))
+        #expect(model.quadrants[.top]?.floating.items.map(\.path) == [np("/r/top/Alpha/Docs/spec.md")])
+    }
+
+    @Test func focusedBranchIsCurrentFolderWithoutLens() {
+        #expect(render(baseState()).quadrants[.top]?.currentFolder == np("/r/top/Alpha"))
     }
 
     @Test func filterModeListsMatchesWithEdge() {

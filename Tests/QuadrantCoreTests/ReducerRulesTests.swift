@@ -224,6 +224,33 @@ import Testing
         #expect(mutations(fx) == [.setRoot(.top, nil)])
     }
 
+    @Test func r2_6_focusBranchBecomesCurrentFolder() {
+        let s = fullPanel(PersistentState(roots: [.top: root]))
+        let (n, _) = run(s, .focusBranch(.top, branch: p("/r/a")))
+        #expect(n.lens.folders[.top] == p("/r/a"))
+    }
+
+    @Test func r2_6_lensCloseKeepsCurrentFolder() {
+        var s = fullPanel(PersistentState(roots: [.top: root]))
+        let star = p("/r/a/x")
+        (s, _) = run(s, .clickStar(.top, star: star))
+        (s, _) = run(s, .lensEnter(p("/r/a/x/y")))
+        (s, _) = run(s, .lensBack)
+        #expect(s.lens.folders[.top] == star)
+        (s, _) = run(s, .escape) // closes the lens, not the panel
+        #expect(!s.lens.isOpen && s.display == .full)
+        #expect(s.lens.folders[.top] == star)
+    }
+
+    @Test func r2_6_focusBranchLeavesOldLensFolder() {
+        var s = fullPanel(PersistentState(roots: [.top: root]))
+        (s, _) = run(s, .clickStar(.top, star: p("/r/a/x")))
+        #expect(s.lens.isOpen)
+        let (n, _) = run(s, .focusBranch(.top, branch: p("/r/b")))
+        #expect(!n.lens.isOpen)
+        #expect(n.lens.folders[.top] == p("/r/b"))
+    }
+
     @Test func r6_2_drillPathFallsBackToExistingAncestor() {
         let l3 = p("/r/a/x")
         let s = fullPanel(PersistentState(roots: [.top: root], drillPaths: [l3: p("/r/a/x/y/z")]))

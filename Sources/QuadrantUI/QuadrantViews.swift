@@ -213,7 +213,6 @@ struct PinnedSection: View {
 struct ShelfView: View {
     let edge: Edge
     let projection: EdgeProjection
-    let focusedFolder: NodePath?
     let selection: NodePath?
     let theme: Theme
     let context: UIContext
@@ -235,7 +234,7 @@ struct ShelfView: View {
             }
             if floating.truncatedCount > 0 {
                 MoreButton(count: floating.truncatedCount, theme: theme, height: PanelGeometry.slotHeight, color: theme.shelfText) {
-                    context.send(.openLens(edge, folder: focusedFolder ?? projection.root ?? NodePath("/")))
+                    context.send(.openLens(edge, folder: projection.currentFolder ?? projection.root ?? NodePath("/")))
                 }
             }
         }
@@ -319,6 +318,9 @@ struct BranchPill: View {
                 menu: nodeMenu(
                     path: item.path, context: context,
                     specific: [
+                        NodeAction(
+                            title: "在透镜里查看全部", icon: .symbol("list.bullet"),
+                            action: { context.send(.openLens(edge, folder: item.path)) }),
                         item.isPinned
                             ? NodeAction(title: "取消置顶", icon: .symbol("pin.slash"), action: { context.send(.unpinFolder(item.path)) })
                             : NodeAction(title: "置顶", icon: .symbol("pin"), action: { context.send(.pinFolder(edge, item.path)) })
@@ -398,6 +400,9 @@ struct StarView: View {
                 menu: nodeMenu(
                     path: item.path, context: context,
                     specific: [
+                        NodeAction(
+                            title: "在透镜里查看全部", icon: .symbol("list.bullet"),
+                            action: { context.send(.openLens(edge, folder: item.path)) }),
                         item.isPinned
                             ? NodeAction(title: "取消置顶", icon: .symbol("pin.slash"), action: { context.send(.unpinFolder(item.path)) })
                             : NodeAction(title: "置顶", icon: .symbol("pin"), action: { context.send(.pinFolder(edge, item.path)) })

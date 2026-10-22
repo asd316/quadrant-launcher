@@ -71,6 +71,9 @@ private struct Reducer {
             guard isFull, let root = state.persistent.roots[edge], !state.missingRoots.contains(edge) else { return }
             usage(branch, .focusBranch)
             persist([.setFocus(root: root, branch: branch)])
+            // R2.6: the focused branch becomes the current folder, so floating slots leave the old lens folder.
+            if state.filterText.isEmpty, state.lens.isOpen, state.lens.edge == edge { closeLens() }
+            state.lens.folders[edge] = branch
 
         case .clickStar(let edge, let star, let existence):
             guard isFull, state.persistent.roots[edge] != nil, !state.missingRoots.contains(edge) else { return }

@@ -142,7 +142,6 @@ public struct PanelView: View {
             let shelf = geometry.shelfRect(edge: edge)
             ShelfView(
                 edge: edge, projection: projection,
-                focusedFolder: projection.branches.items.first(where: \.isFocused)?.path,
                 selection: model.keyboardSelection, theme: theme, context: context
             )
             .anchored(.topLeading, in: size, dx: shelf.minX, dy: shelf.minY)

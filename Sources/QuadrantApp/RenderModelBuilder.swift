@@ -48,12 +48,13 @@ enum RenderModelBuilder {
             message: input.message)
     }
 
-    /// Floating slots follow the lens folder of this quadrant while the lens is open there, else the focused branch.
+    /// Floating slots follow the folder last focused or opened in the lens. Closing the lens keeps it, so the
+    /// shelf still shows the folder the user was just in (R2.6).
     private static func currentFolder(
         edge: Edge, root: NodePath, input: RenderInputs
     ) -> (NodePath?, [FolderNode]?) {
         let lens = input.state.lens
-        if lens.isOpen, lens.edge == edge, let folder = lens.folders[edge] {
+        if let folder = lens.folders[edge] {
             return (folder, input.childrenCache[folder])
         }
         return (input.state.persistent.focus[root], nil)

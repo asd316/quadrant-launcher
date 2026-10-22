@@ -52,13 +52,19 @@ public struct FolderNode: Hashable, Sendable {
     public var path: NodePath
     public var kind: NodeKind
     public var modifiedAt: Date
+    /// File size in bytes; nil for folders (shown in the lens, Design-Principles).
+    public var size: Int64?
     public var isSymlink: Bool
     public var children: [FolderNode]
 
-    public init(path: NodePath, kind: NodeKind, modifiedAt: Date, isSymlink: Bool = false, children: [FolderNode] = []) {
+    public init(
+        path: NodePath, kind: NodeKind, modifiedAt: Date, size: Int64? = nil, isSymlink: Bool = false,
+        children: [FolderNode] = []
+    ) {
         self.path = path
         self.kind = kind
         self.modifiedAt = modifiedAt
+        self.size = size
         self.isSymlink = isSymlink
         self.children = children
     }

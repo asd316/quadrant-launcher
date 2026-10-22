@@ -65,7 +65,7 @@ public struct FileSystemFolderSource: FolderSource {
 
     /// Direct children, shallow nodes, hidden names skipped, sorted by path.
     private static func readChildren(of folder: NodePath) -> [FolderNode] {
-        let keys: [URLResourceKey] = [.isDirectoryKey, .isSymbolicLinkKey, .contentModificationDateKey]
+        let keys: [URLResourceKey] = [.isDirectoryKey, .isSymbolicLinkKey, .contentModificationDateKey, .fileSizeKey]
         let url = URL(fileURLWithPath: folder.raw, isDirectory: true)
         guard let urls = try? FileManager.default.contentsOfDirectory(
             at: url, includingPropertiesForKeys: keys, options: []
@@ -88,6 +88,7 @@ public struct FileSystemFolderSource: FolderSource {
                 path: path,
                 kind: isDirectory ? .folder : .file,
                 modifiedAt: values?.contentModificationDate ?? .distantPast,
+                size: isDirectory ? nil : values?.fileSize.map(Int64.init),
                 isSymlink: isSymlink
             ))
         }

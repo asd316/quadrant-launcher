@@ -84,17 +84,24 @@ public struct LensRow: Equatable, Sendable, Identifiable {
     public var kind: NodeKind
     /// Filter mode only: the edge the match belongs to, shown as context.
     public var edge: Edge?
+    public var modifiedAt: Date?
+    /// Bytes; nil for folders.
+    public var size: Int64?
     public var id: NodePath { path }
 
-    public init(path: NodePath, kind: NodeKind, edge: Edge? = nil) {
+    public init(path: NodePath, kind: NodeKind, edge: Edge? = nil, modifiedAt: Date? = nil, size: Int64? = nil) {
         self.path = path
         self.kind = kind
         self.edge = edge
+        self.modifiedAt = modifiedAt
+        self.size = size
     }
 }
 
 /// What the user did. The App turns these into Core intents (and System calls where needed).
 public enum UIEvent: Sendable, Equatable {
+    /// Files dropped from another app (e.g. Finder) onto a drop zone while the panel is behind Finder.
+    case externalDrop([NodePath], on: DropZone)
     case clickBranch(Edge, NodePath)
     case clickStar(Edge, NodePath)
     /// Clicked a 「+n」: open the lens on `folder` to see everything.

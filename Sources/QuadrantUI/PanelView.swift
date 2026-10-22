@@ -115,7 +115,6 @@ public struct PanelView: View {
         -> some View
     {
         let projection = model.quadrants[edge]
-        let center = geometry.center
         QuadrantTitle(projection: projection, edge: edge, theme: theme, context: context)
             .anchored(titleAlignment(edge), in: size, dx: titleOffset(edge, geometry).x, dy: titleOffset(edge, geometry).y)
 

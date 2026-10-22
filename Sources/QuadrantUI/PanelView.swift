@@ -10,7 +10,6 @@ public struct PanelView: View {
     @Environment(\.colorScheme) private var scheme
     @Environment(\.isStaticRender) private var isStatic
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var coordinator = DragCoordinator()
 
     public init(model: PanelRenderModel, send: @escaping @MainActor (UIEvent) -> Void) {
         self.model = model
@@ -26,25 +25,31 @@ public struct PanelView: View {
     private func content(size: CGSize) -> some View {
         let theme = Theme(scheme)
         let geometry = PanelGeometry(size: size)
-        let context = UIContext(send: send, coordinator: coordinator)
+        let context = UIContext(send: send, coordinator: .shared)
         let hidden = model.isHalfHidden
         let lensOpen = model.lens != nil
         let capacities = PanelLayout.starCapacities(for: model, size: size)
         let fade: Animation? = reduceMotion ? nil : .easeOut(duration: 0.12)
 
+        // Half-hidden (R7.2): draw nothing, but keep every view alive so the drag source survives the drag.
         return ZStack(alignment: .topLeading) {
-            if !hidden { background(theme: theme, size: size) }
             ZStack(alignment: .topLeading) {
-                ForEach(Edge.allCases, id: \.self) { edge in
-                    quadrant(edge, size: size, geometry: geometry, theme: theme, context: context)
+                background(theme: theme, size: size)
+                    .contentShape(Rectangle())
+                    .onTapGesture { send(.backgroundClicked) }
+                ZStack(alignment: .topLeading) {
+                    ForEach(Edge.allCases, id: \.self) { edge in
+                        quadrant(edge, size: size, geometry: geometry, theme: theme, context: context)
+                    }
                 }
-            }
-            .opacity(hidden ? 0 : (lensOpen ? 0.65 : 1))
-            .allowsHitTesting(!hidden)
-            .animation(.easeOut(duration: hidden ? 0.1 : 0.12), value: hidden)
-            .animation(fade, value: lensOpen)
+                .opacity(lensOpen ? 0.65 : 1)
+                .animation(fade, value: lensOpen)
 
-            centerLayer(size: size, theme: theme, context: context)
+                centerLayer(size: size, theme: theme, context: context)
+            }
+            .opacity(hidden ? 0 : 1)
+            .allowsHitTesting(!hidden)
+            .animation(.easeOut(duration: 0.1), value: hidden)
         }
         .frame(width: size.width, height: size.height, alignment: .topLeading)
         .onChange(of: capacities, initial: true) {
@@ -91,7 +96,6 @@ public struct PanelView: View {
             .clipShape(Rectangle())
         }
         .frame(width: size.width, height: size.height)
-        .allowsHitTesting(false)
     }
 
     private func wedge(_ edge: Edge, corners: [CGPoint], center: CGPoint) -> Path {
@@ -118,14 +122,17 @@ public struct PanelView: View {
         QuadrantTitle(projection: projection, edge: edge, theme: theme, context: context)
             .anchored(titleAlignment(edge), in: size, dx: titleOffset(edge, geometry).x, dy: titleOffset(edge, geometry).y)
 
-        if let projection, projection.status == .ready {
+        if let projection, projection.status != .empty {
+            let shelf = geometry.shelfRect(edge: edge)
             ShelfView(
                 edge: edge, projection: projection,
                 focusedFolder: projection.branches.items.first(where: \.isFocused)?.path,
                 selection: model.keyboardSelection, theme: theme, context: context
             )
-            .anchored(shelfAlignment(edge), in: size, dx: edge == .left ? 12 : (edge == .right ? -12 : 0),
-                      dy: edge == .top ? 12 : (edge == .bottom ? -12 : 0))
+            .anchored(.topLeading, in: size, dx: shelf.minX, dy: shelf.minY)
+        }
+
+        if let projection, projection.status == .ready {
 
             let branchRect = geometry.branchRect(edge: edge, projection: projection)
             BranchGroup(edge: edge, projection: projection, selection: model.keyboardSelection, theme: theme, context: context)
@@ -141,7 +148,8 @@ public struct PanelView: View {
         context: UIContext
     ) -> some View {
         let slots = StarfieldLayout.slots(
-            edge: edge, size: size, exclusions: geometry.starExclusions(edge: edge, quadrants: model.quadrants))
+            edge: edge, size: size, exclusions: geometry.starExclusions(edge: edge, quadrants: model.quadrants),
+            origin: geometry.starOrigin(edge: edge))
         if projection.stars.branch == nil || projection.stars.items.isEmpty {
             let text = projection.stars.branch == nil ? "点击一个分支目录，显示它的星点" : "没有子文件夹"
             let rect = geometry.hintRect(
@@ -166,19 +174,10 @@ public struct PanelView: View {
 
     private func titleOffset(_ edge: Edge, _ g: PanelGeometry) -> CGPoint {
         switch edge {
-        case .top: CGPoint(x: g.center.x - 540, y: 20)
+        case .top: CGPoint(x: g.center.x - 560, y: 20)
         case .left: CGPoint(x: 22, y: g.center.y + 250)
         case .right: CGPoint(x: -35, y: g.center.y - 270)
-        case .bottom: CGPoint(x: -185, y: g.size.height - 48)
-        }
-    }
-
-    private func shelfAlignment(_ edge: Edge) -> Alignment {
-        switch edge {
-        case .top: .top
-        case .bottom: .bottom
-        case .left: .leading
-        case .right: .trailing
+        case .bottom: CGPoint(x: -150, y: g.size.height - 60)
         }
     }
 
@@ -207,7 +206,7 @@ public struct PanelView: View {
         }
         .frame(width: size.width, height: size.height)
 
-        if let lens = model.lens, !model.isHalfHidden {
+        if let lens = model.lens {
             LensView(lens: lens, selection: model.keyboardSelection, theme: theme, context: context)
                 .transition(
                     reduceMotion

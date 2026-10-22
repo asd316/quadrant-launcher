@@ -63,6 +63,7 @@ func describe(_ commands: [AppCommand]) -> [String] {
         case .select(let p): "select(\(p?.raw ?? "nil"))"
         case .reveal(let p): "reveal(\(p.raw))"
         case .starCapacity(let e, let n): "starCapacity(\(e),\(n))"
+        case .dismissPanel: "dismissPanel"
         }
     }
 }

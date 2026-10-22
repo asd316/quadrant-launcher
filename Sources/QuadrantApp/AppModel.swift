@@ -103,12 +103,16 @@ final class AppModel {
         case .closed:
             dispatch(.summon)
         case .full:
-            // Esc steps back one level at a time; keep going until the panel is closed.
-            for _ in 0..<4 where state.display == .full { dispatch(.escape, rebuild: false) }
-            rebuild()
+            closePanel()
         case .halfHidden:
             break
         }
+    }
+
+    /// Esc steps back one level at a time (through Core, so state stays consistent); repeat until closed.
+    func closePanel() {
+        for _ in 0..<4 where state.display == .full { dispatch(.escape, rebuild: false) }
+        rebuild()
     }
 
     func setRoot(_ edge: Edge, to path: NodePath?) {
@@ -158,6 +162,7 @@ final class AppModel {
             case .reveal(let path): NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path.raw)])
             case .starCapacity(let edge, let count):
                 starCapacity[edge] = max(0, count)
+            case .dismissPanel: closePanel()
             }
         }
         rebuild()

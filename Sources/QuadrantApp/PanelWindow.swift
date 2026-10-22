@@ -18,7 +18,7 @@ final class QuadrantPanel: NSPanel {
             backing: .buffered,
             defer: false)
         isFloatingPanel = true
-        level = .screenSaver
+        level = PanelWindowController.panelLevel
         hidesOnDeactivate = false
         isOpaque = false
         backgroundColor = .clear
@@ -88,19 +88,33 @@ struct PanelRoot: View {
     }
 }
 
-/// Owns the panel window. Shrink and restore follow the drag behaviour confirmed in PanelSpike.
+/// Owns the panel window and the drop-zone windows shown during a drag.
 @MainActor
 final class PanelWindowController: PanelWindowControlling {
-    /// Stash rectangle around the screen center while a drag runs (R7.2).
-    static let stashSize = NSSize(width: 360, height: 220)
+    /// Just under the menu bar, so the menu bar and status item stay visible and clickable.
+    static let panelLevel = NSWindow.Level(rawValue: NSWindow.Level.mainMenu.rawValue - 1)
+    /// Drop zones sit above the main panel.
+    static let zoneLevel = NSWindow.Level(rawValue: NSWindow.Level.mainMenu.rawValue)
+    static let openDuration: TimeInterval = 0.15
+    static let closeDuration: TimeInterval = 0.1
+    static let slideDistance: CGFloat = 32
 
     private let panel: QuadrantPanel
+    private let model: AppModel
     private var fullFrame: NSRect
+    private var zoneWindows: [NSPanel] = []
+    /// Bumped on every show/hide so a late fade-out never hides a panel that was reopened.
+    private var generation = 0
+    private var isShown = false
+
+    /// Called with true when the panel is shown, false when hidden (status item highlight).
+    var onVisibilityChange: ((Bool) -> Void)?
 
     init(model: AppModel) {
-        let screen = NSScreen.main ?? NSScreen.screens[0]
-        fullFrame = screen.frame
-        panel = QuadrantPanel(screenFrame: fullFrame)
+        self.model = model
+        let frame = Self.currentFrame()
+        fullFrame = frame
+        panel = QuadrantPanel(screenFrame: frame)
         let hosting = NSHostingView(rootView: PanelRoot(model: model))
         hosting.sizingOptions = []
         panel.contentView = hosting
@@ -110,30 +124,102 @@ final class PanelWindowController: PanelWindowControlling {
         hosting.addSubview(panel.textInput)
     }
 
-    func restoreFull() {
+    private static func currentFrame() -> NSRect {
         let screen = NSScreen.main ?? NSScreen.screens[0]
-        fullFrame = screen.frame
-        panel.setFrame(fullFrame, display: true)
-        panel.orderFrontRegardless()
+        return PanelFrame.frame(screenFrame: screen.frame, visibleFrame: screen.visibleFrame)
+    }
+
+    private var reduceMotion: Bool { NSWorkspace.shared.accessibilityDisplayShouldReduceMotion }
+
+    func restoreFull() {
+        generation += 1
+        removeZoneWindows()
+        panel.ignoresMouseEvents = false
+        fullFrame = Self.currentFrame()
+        if isShown {
+            // End of a drag: the panel is still ordered in, just transparent.
+            panel.setFrame(fullFrame, display: true)
+            panel.alphaValue = 1
+        } else {
+            isShown = true
+            let animate = !reduceMotion
+            var start = fullFrame
+            if animate { start.origin.y += Self.slideDistance }
+            panel.setFrame(start, display: true)
+            panel.alphaValue = 0
+            panel.orderFrontRegardless()
+            NSAnimationContext.runAnimationGroup { ctx in
+                ctx.duration = Self.openDuration
+                ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
+                panel.animator().alphaValue = 1
+                if animate { panel.animator().setFrame(fullFrame, display: true) }
+            }
+            onVisibilityChange?(true)
+        }
         panel.makeKey()
         panel.makeFirstResponder(panel.textInput)
     }
 
+    /// R7.2: the main panel stays ordered in (the drag source view must live) but is invisible and click-through;
+    /// one small window per drop zone takes its place. Done after the drag has started, as in the spike.
     func enterHalfHidden() {
-        // After the drag has started: resizing inside the drag-begin callback can end the session.
         Task { @MainActor [weak self] in
             guard let self else { return }
-            let size = Self.stashSize
-            panel.setFrame(
-                NSRect(
-                    x: fullFrame.midX - size.width / 2, y: fullFrame.midY - size.height / 2,
-                    width: size.width, height: size.height),
-                display: true)
+            panel.alphaValue = 0
+            panel.ignoresMouseEvents = true
+            showZoneWindows()
         }
     }
 
     func hide() {
-        panel.orderOut(nil)
+        generation += 1
+        let mine = generation
+        removeZoneWindows()
+        panel.ignoresMouseEvents = false
+        guard isShown else { return }
+        isShown = false
+        onVisibilityChange?(false)
+        NSAnimationContext.runAnimationGroup { ctx in
+            ctx.duration = Self.closeDuration
+            panel.animator().alphaValue = 0
+        }
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(Self.closeDuration + 0.03))
+            guard let self, generation == mine else { return }
+            panel.orderOut(nil)
+            panel.alphaValue = 1
+        }
+    }
+
+    // MARK: Drop zones
+
+    private func showZoneWindows() {
+        removeZoneWindows()
+        let rects = PanelLayout.dropZoneRects(size: fullFrame.size, model: model.render)
+        for (zone, rect) in rects {
+            let window = NSPanel(
+                contentRect: PanelFrame.screenRect(rect, panelFrame: fullFrame),
+                styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
+            window.isFloatingPanel = true
+            window.level = Self.zoneLevel
+            window.hidesOnDeactivate = false
+            window.isOpaque = false
+            window.backgroundColor = .clear
+            window.hasShadow = false
+            window.isReleasedWhenClosed = false
+            window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
+            let hosting = NSHostingView(
+                rootView: DropZoneView(zone: zone, model: model.render, send: { [model] event in model.handle(event) }))
+            hosting.sizingOptions = []
+            window.contentView = hosting
+            window.orderFrontRegardless()
+            zoneWindows.append(window)
+        }
+    }
+
+    private func removeZoneWindows() {
+        for window in zoneWindows { window.orderOut(nil) }
+        zoneWindows.removeAll()
     }
 
     /// Debug aid: draws the panel content into a PNG without screen-recording permission.

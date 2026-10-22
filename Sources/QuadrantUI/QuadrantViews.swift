@@ -52,29 +52,31 @@ struct QuadrantTitle: View {
             Text("未设置常驻文件夹").font(Theme.smallFont).foregroundStyle(theme.hint.opacity(0.7))
         case .rootUnavailable, .ready:
             let unavailable = projection?.status == .rootUnavailable
-            HStack(spacing: 7) {
-                Image(systemName: "folder").font(.system(size: 17))
-                Text(projection?.root?.name ?? "")
-                    .font(Theme.titleFont)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-                    .frame(maxWidth: PanelGeometry.titleTextMax, alignment: .leading)
-                    .fixedSize(horizontal: true, vertical: false)
-                    .strikethrough(unavailable)
-                if unavailable {
-                    Text("失效").font(Theme.smallFont)
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 7) {
+                    Image(systemName: "folder").font(.system(size: 17))
+                    Text(projection?.root?.name ?? "")
+                        .font(Theme.titleFont)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                        .frame(maxWidth: PanelGeometry.titleTextMax, alignment: .leading)
+                        .fixedSize(horizontal: true, vertical: false)
+                        .strikethrough(unavailable)
+                    if unavailable {
+                        Text("失效").font(Theme.smallFont)
+                    }
                 }
+                .foregroundStyle(unavailable ? theme.broken : theme.title)
+                .help(projection?.root?.raw ?? "")
                 if let hidden = projection?.branches.hiddenCount, hidden > 0 {
                     Button("全部显示") { context.send(.showAllBranches(edge)) }
                         .buttonStyle(.plain)
                         .font(Theme.smallFont)
                         .foregroundStyle(theme.shelfText)
                         .underline()
-                        .padding(.leading, 6)
+                        .padding(.leading, 24)
                 }
             }
-            .foregroundStyle(unavailable ? theme.broken : theme.title)
-            .help(projection?.root?.raw ?? "")
         }
     }
 }
@@ -91,6 +93,7 @@ struct ShelfSlot: View {
     let edge: Edge
     let theme: Theme
     let context: UIContext
+    var interactive = true
     @State private var hovered = false
 
     var body: some View {
@@ -101,30 +104,108 @@ struct ShelfSlot: View {
                 .lineLimit(1)
                 .truncationMode(.tail)
                 .strikethrough(isBroken)
-                .frame(maxWidth: vertical ? .infinity : 84, alignment: .leading)
+                .frame(maxWidth: vertical ? .infinity : (isBroken ? 30 : 56), alignment: .leading)
                 .fixedSize(horizontal: !vertical, vertical: false)
             if isBroken { Text("失效").font(Theme.smallFont) }
         }
         .foregroundStyle(isBroken ? theme.broken : theme.shelfText)
         .padding(.horizontal, 8)
         .frame(maxWidth: vertical ? .infinity : nil, alignment: .leading)
-        .frame(height: 28)
+        .frame(height: PanelGeometry.slotHeight)
         .background(RoundedRectangle(cornerRadius: 7).fill(hovered ? theme.hover : .clear))
         .selectionStyle(selected, radius: 7, theme: theme)
-        .nodeInteraction(
-            InteractionNode(
-                path: path, kind: .file, context: context,
-                onClick: { context.send(.select(path)) },
-                onDoubleClick: { context.send(.doubleClick(path, .file)) },
-                onHover: { hovered = $0 },
-                menu: nodeMenu(
-                    path: path, context: context,
-                    specific: [
-                        isPinned
-                            ? NodeMenuItem(title: "移出固定位", action: { context.send(.unpinSlot(edge, path)) })
-                            : NodeMenuItem(title: "放进固定位", action: { context.send(.pinSlot(edge, path)) })
-                    ])))
+        .modifier(
+            OptionalInteraction(
+                enabled: interactive,
+                node: InteractionNode(
+                    path: path, kind: .file, context: context,
+                    onClick: { context.send(.select(path)) },
+                    onDoubleClick: { context.send(.doubleClick(path, .file)) },
+                    onHover: { hovered = $0 },
+                    menu: nodeMenu(
+                        path: path, context: context,
+                        specific: [
+                            isPinned
+                                ? NodeMenuItem(title: "移出固定位", action: { context.send(.unpinSlot(edge, path)) })
+                                : NodeMenuItem(title: "放进固定位", action: { context.send(.pinSlot(edge, path)) })
+                        ]))))
         .help(name)
+    }
+}
+
+private struct OptionalInteraction: ViewModifier {
+    let enabled: Bool
+    let node: InteractionNode
+
+    func body(content: Content) -> some View {
+        if enabled { content.nodeInteraction(node) } else { content }
+    }
+}
+
+/// Dashed empty slot with a very quiet hint.
+struct EmptySlot: View {
+    let text: String
+    let vertical: Bool
+    let theme: Theme
+
+    var body: some View {
+        Text(text)
+            .font(.system(size: 11))
+            .foregroundStyle(theme.shelfText.opacity(0.6))
+            .lineLimit(1)
+            .padding(.horizontal, 8)
+            .frame(maxWidth: vertical ? .infinity : nil, alignment: .leading)
+            .frame(height: PanelGeometry.slotHeight)
+            .overlay(
+                RoundedRectangle(cornerRadius: 7)
+                    .strokeBorder(theme.stashDash, style: StrokeStyle(lineWidth: 1, dash: [4, 3])))
+    }
+}
+
+struct SectionLabel: View {
+    let text: String
+    let theme: Theme
+
+    var body: some View {
+        Text(text).font(.system(size: 11)).foregroundStyle(theme.shelfText.opacity(0.75))
+    }
+}
+
+/// 「固定」: pinned files, plus one dashed slot while there is room (R4.3: up to five).
+struct PinnedSection: View {
+    let edge: Edge
+    let projection: EdgeProjection
+    let selection: NodePath?
+    let theme: Theme
+    let context: UIContext
+    var interactive = true
+
+    private var vertical: Bool { edge.isHorizontalSide }
+
+    var body: some View {
+        let pinned = projection.pinnedSlots
+        let slots = Group {
+            ForEach(pinned, id: \.path) { slot in
+                ShelfSlot(
+                    name: slot.name, path: slot.path, isBroken: slot.isBroken, isPinned: true,
+                    vertical: vertical, selected: selection == slot.path, edge: edge, theme: theme,
+                    context: context, interactive: interactive)
+            }
+            if pinned.count < Capacity.pinnedSlotsPerEdge {
+                EmptySlot(text: "拖文件到这里", vertical: vertical, theme: theme)
+            }
+        }
+        if vertical {
+            VStack(alignment: .leading, spacing: 2) {
+                SectionLabel(text: "固定", theme: theme).frame(height: 16)
+                slots
+            }
+        } else {
+            HStack(spacing: 2) {
+                SectionLabel(text: "固定", theme: theme).frame(width: 28, alignment: .leading)
+                slots
+            }
+        }
     }
 }
 
@@ -139,46 +220,49 @@ struct ShelfView: View {
     private var vertical: Bool { edge.isHorizontalSide }
 
     var body: some View {
-        let pinned = projection.pinnedSlots
         let floating = projection.floating
-        if !pinned.isEmpty || !floating.items.isEmpty {
-            let content = Group {
-                ForEach(pinned, id: \.path) { slot in
-                    ShelfSlot(
-                        name: slot.name, path: slot.path, isBroken: slot.isBroken, isPinned: true,
-                        vertical: vertical, selected: selection == slot.path, edge: edge, theme: theme, context: context)
+        let pinnedSection = PinnedSection(
+            edge: edge, projection: projection, selection: selection, theme: theme, context: context)
+        let floatingSlots = Group {
+            ForEach(floating.items, id: \.path) { item in
+                ShelfSlot(
+                    name: item.name, path: item.path, isBroken: false, isPinned: false,
+                    vertical: vertical, selected: selection == item.path, edge: edge, theme: theme, context: context)
+            }
+            if floating.items.isEmpty {
+                EmptySlot(text: "选中文件夹后自动出现", vertical: vertical, theme: theme)
+            }
+            if floating.truncatedCount > 0 {
+                MoreButton(count: floating.truncatedCount, theme: theme, height: PanelGeometry.slotHeight, color: theme.shelfText) {
+                    context.send(.openLens(edge, folder: focusedFolder ?? projection.root ?? NodePath("/")))
                 }
-                if !pinned.isEmpty && !floating.items.isEmpty { separator }
-                ForEach(floating.items, id: \.path) { item in
-                    ShelfSlot(
-                        name: item.name, path: item.path, isBroken: false, isPinned: false,
-                        vertical: vertical, selected: selection == item.path, edge: edge, theme: theme, context: context)
-                }
-                if floating.truncatedCount > 0 {
-                    MoreButton(count: floating.truncatedCount, theme: theme, height: 28, color: theme.shelfText) {
-                        context.send(.openLens(edge, folder: focusedFolder ?? projection.root ?? NodePath("/")))
+            }
+        }
+        Group {
+            if vertical {
+                VStack(alignment: .leading, spacing: PanelGeometry.verticalSectionGap) {
+                    pinnedSection.frame(height: PanelGeometry.verticalSectionHeight, alignment: .topLeading)
+                    VStack(alignment: .leading, spacing: 2) {
+                        SectionLabel(text: "浮动", theme: theme).frame(height: 16)
+                        floatingSlots
                     }
-                    .frame(maxWidth: vertical ? .infinity : nil, alignment: .leading)
+                    .frame(height: PanelGeometry.verticalSectionHeight, alignment: .topLeading)
                 }
-            }
-            Group {
-                if vertical {
-                    VStack(alignment: .leading, spacing: 2) { content }.frame(width: PanelGeometry.verticalShelfWidth - 12)
-                } else {
-                    HStack(spacing: 2) { content }
+                .frame(width: PanelGeometry.verticalShelfWidth - 2 * PanelGeometry.shelfPadding, alignment: .leading)
+            } else {
+                VStack(alignment: .leading, spacing: PanelGeometry.horizontalSectionGap) {
+                    pinnedSection.frame(height: PanelGeometry.slotHeight)
+                    HStack(spacing: 2) {
+                        SectionLabel(text: "浮动", theme: theme).frame(width: 28, alignment: .leading)
+                        floatingSlots
+                    }
+                    .frame(height: PanelGeometry.slotHeight)
                 }
+                .frame(width: PanelGeometry.horizontalShelfWidth - 2 * PanelGeometry.shelfPadding, alignment: .leading)
             }
-            .padding(6)
-            .background(RoundedRectangle(cornerRadius: 8).fill(theme.shelfBackground))
         }
-    }
-
-    @ViewBuilder private var separator: some View {
-        if vertical {
-            Rectangle().fill(theme.divider).frame(height: 1).padding(.horizontal, 8)
-        } else {
-            Rectangle().fill(theme.divider).frame(width: 1, height: 14).padding(.horizontal, 4)
-        }
+        .padding(PanelGeometry.shelfPadding)
+        .background(RoundedRectangle(cornerRadius: 8).fill(theme.shelfBackground))
     }
 }
 

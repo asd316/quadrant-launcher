@@ -3,27 +3,35 @@ import QuadrantCore
 import enum QuadrantCore.Edge
 import SwiftUI
 
-/// Shared between every drag source and the stash drop target within one panel.
-/// SwiftUI `.onDrag` cannot report the outcome, so sources and the stash talk through this object.
+/// Process-wide state of the drag in progress. The drag source lives in the main panel while the drop zones
+/// live in other windows, so both talk through this one object. A zone records the drop before the source's
+/// end callback runs.
 @MainActor
 final class DragCoordinator {
+    static let shared = DragCoordinator()
+
     private(set) var isDragging = false
-    private(set) var droppedOnStash = false
+    private(set) var dropOutcome: DragOutcome?
 
     func begin() {
         isDragging = true
-        droppedOnStash = false
+        dropOutcome = nil
     }
 
-    func markDroppedOnStash() { droppedOnStash = true }
+    func recordDrop(on zone: DropZone) {
+        switch zone {
+        case .stash: dropOutcome = .stash
+        case .pinnedShelf(let edge): dropOutcome = .pinnedShelf(edge)
+        }
+    }
 
-    /// Decides the outcome at session end (R7.3): stash, cancelled, or another app.
+    /// Decides the outcome at session end (R7.3): a recorded zone, cancelled, or another app.
     func finish(operation: NSDragOperation) -> DragOutcome {
         defer {
             isDragging = false
-            droppedOnStash = false
+            dropOutcome = nil
         }
-        if droppedOnStash { return .stash }
+        if let dropOutcome { return dropOutcome }
         return operation.isEmpty ? .cancelled : .otherApp
     }
 }
@@ -48,6 +56,8 @@ struct InteractionNode {
     var onDoubleClick: (@MainActor () -> Void)?
     var onHover: (@MainActor (Bool) -> Void)?
     var menu: [NodeMenuItem] = []
+    /// Wait out the double-click interval before running `onClick`, so a double click does not also run it.
+    var delaysClick = false
 }
 
 /// Menu items shared by all node types: 复制路径 first, 在 Finder 中显示 last, type-specific ones between.
@@ -82,6 +92,7 @@ final class InteractionView: NSView, NSDraggingSource {
     var node: InteractionNode?
     private var mouseDownEvent: NSEvent?
     private var dragStarted = false
+    private var pendingClick: Task<Void, Never>?
 
     override var acceptsFirstResponder: Bool { false }
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
@@ -131,8 +142,15 @@ final class InteractionView: NSView, NSDraggingSource {
     override func mouseUp(with event: NSEvent) {
         defer { mouseDownEvent = nil }
         guard !dragStarted, let node else { return }
+        pendingClick?.cancel()
+        pendingClick = nil
         if event.clickCount >= 2 {
             node.onDoubleClick?()
+        } else if node.delaysClick, node.onDoubleClick != nil, let onClick = node.onClick {
+            pendingClick = Task { @MainActor in
+                try? await Task.sleep(for: .seconds(NSEvent.doubleClickInterval))
+                if !Task.isCancelled { onClick() }
+            }
         } else {
             node.onClick?()
         }
@@ -178,23 +196,27 @@ final class InteractionView: NSView, NSDraggingSource {
     }
 }
 
-/// Registers the stash as a drop target and tells the coordinator when something lands on it.
-struct StashDropTarget: NSViewRepresentable {
-    let coordinator: DragCoordinator
+/// Registers a drop zone for the panel's own drag and records the drop on the shared coordinator.
+struct ZoneDropTarget: NSViewRepresentable {
+    let zone: DropZone
+    @Binding var isTargeted: Bool
 
-    func makeNSView(context: Context) -> StashDropView {
-        let view = StashDropView()
-        view.coordinator = coordinator
+    func makeNSView(context: Context) -> ZoneDropView {
+        let view = ZoneDropView()
+        view.zone = zone
+        view.onTargeted = { isTargeted = $0 }
         return view
     }
 
-    func updateNSView(_ view: StashDropView, context: Context) {
-        view.coordinator = coordinator
+    func updateNSView(_ view: ZoneDropView, context: Context) {
+        view.zone = zone
+        view.onTargeted = { isTargeted = $0 }
     }
 }
 
-final class StashDropView: NSView {
-    var coordinator: DragCoordinator?
+final class ZoneDropView: NSView {
+    var zone: DropZone = .stash
+    var onTargeted: ((Bool) -> Void)?
 
     override init(frame: NSRect) {
         super.init(frame: frame)
@@ -204,16 +226,21 @@ final class StashDropView: NSView {
     required init?(coder: NSCoder) { nil }
 
     override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
-        coordinator?.isDragging == true ? .copy : []
+        guard DragCoordinator.shared.isDragging else { return [] }
+        onTargeted?(true)
+        return .copy
     }
 
     override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation {
-        coordinator?.isDragging == true ? .copy : []
+        DragCoordinator.shared.isDragging ? .copy : []
     }
 
+    override func draggingExited(_ sender: NSDraggingInfo?) { onTargeted?(false) }
+
     override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
-        guard coordinator?.isDragging == true else { return false }
-        coordinator?.markDroppedOnStash()
+        guard DragCoordinator.shared.isDragging else { return false }
+        DragCoordinator.shared.recordDrop(on: zone)
+        onTargeted?(false)
         return true
     }
 }

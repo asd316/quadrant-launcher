@@ -6,6 +6,7 @@ import SwiftUI
 
 struct StashItemSlot: View {
     let slot: StashSlot
+    var interactive = true
     let selected: Bool
     let theme: Theme
     let context: UIContext
@@ -47,22 +48,33 @@ struct StashItemSlot: View {
         }
         .frame(width: 118, height: 40)
         .overlay(RoundedRectangle(cornerRadius: 9).strokeBorder(selected ? theme.accent.opacity(0.7) : .clear, lineWidth: 1))
-        .nodeInteraction(
-            InteractionNode(
-                path: path, kind: slot.kind, context: context,
-                onClick: { context.send(.select(path)) },
-                onDoubleClick: { context.send(.doubleClick(path, slot.kind)) },
-                onHover: { hovered = $0 },
-                menu: nodeMenu(
-                    path: path, context: context,
-                    specific: [NodeMenuItem(title: "移出暂存区", action: { context.send(.stashRemove(path)) })])),
-            trailingInset: hovered ? 22 : 0)
+        .modifier(
+            StashInteraction(
+                enabled: interactive, trailingInset: hovered ? 22 : 0,
+                node: InteractionNode(
+                    path: path, kind: slot.kind, context: context,
+                    onClick: { context.send(.select(path)) },
+                    onDoubleClick: { context.send(.doubleClick(path, slot.kind)) },
+                    onHover: { hovered = $0 },
+                    menu: nodeMenu(
+                        path: path, context: context,
+                        specific: [NodeMenuItem(title: "移出暂存区", action: { context.send(.stashRemove(path)) })]))))
         .help(path.name)
     }
 }
 
+private struct StashInteraction: ViewModifier {
+    let enabled: Bool
+    let trailingInset: CGFloat
+    let node: InteractionNode
+
+    func body(content: Content) -> some View {
+        if enabled { content.nodeInteraction(node, trailingInset: trailingInset) } else { content }
+    }
+}
+
 struct StashView: View {
-    @Environment(\.isStaticRender) private var isStatic
+    var interactive = true
     let slots: [StashSlot]
     let selection: NodePath?
     let copyProgress: Double?
@@ -74,7 +86,7 @@ struct StashView: View {
         HStack(spacing: 10) {
             ForEach(0..<Capacity.stashItems, id: \.self) { index in
                 if index < shown.count {
-                    StashItemSlot(slot: shown[index], selected: selection == shown[index].path, theme: theme, context: context)
+                    StashItemSlot(slot: shown[index], interactive: interactive, selected: selection == shown[index].path, theme: theme, context: context)
                 } else {
                     RoundedRectangle(cornerRadius: 9)
                         .strokeBorder(theme.stashDash, style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
@@ -99,7 +111,6 @@ struct StashView: View {
             }
         }
         .shadow(color: theme.stashShadow, radius: 6, x: 0, y: 2)
-        .background { if !isStatic { StashDropTarget(coordinator: context.coordinator) } }
     }
 }
 
@@ -148,10 +159,11 @@ struct LensRowView: View {
         .nodeInteraction(
             InteractionNode(
                 path: path, kind: row.kind, context: context,
-                onClick: { context.send(.select(path)) },
+                onClick: { context.send(row.kind == .folder ? .lensEnter(path) : .select(path)) },
                 onDoubleClick: { context.send(.doubleClick(path, row.kind)) },
                 onHover: { hovered = $0 },
-                menu: nodeMenu(path: path, context: context, specific: pinMenu)),
+                menu: nodeMenu(path: path, context: context, specific: pinMenu),
+                delaysClick: row.kind == .folder),
             trailingInset: active ? 72 : 0)
         .onHover { hovered = $0 }
     }

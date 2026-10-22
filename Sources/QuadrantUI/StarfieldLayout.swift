@@ -37,8 +37,8 @@ enum StarfieldLayout {
         }
     }
 
-    /// Non-overlapping label slots, nearest to the screen center first. `exclusions` already include their margins.
-    static func slots(edge: Edge, size: CGSize, exclusions: [CGRect]) -> [Slot] {
+    /// Non-overlapping label slots, nearest to `origin` (default: the screen center) first. `exclusions` already include their margins.
+    static func slots(edge: Edge, size: CGSize, exclusions: [CGRect], origin: CGPoint? = nil) -> [Slot] {
         let box = labelSize
         var result: [Slot] = []
         var row = 0
@@ -48,7 +48,7 @@ enum StarfieldLayout {
             while x + box.width <= size.width - screenInset {
                 let rect = CGRect(x: x, y: y, width: box.width, height: box.height)
                 if isValid(rect, edge: edge, size: size, exclusions: exclusions) {
-                    result.append(Slot(frame: rect, distance: distanceFromCenter(rect, size: size)))
+                    result.append(Slot(frame: rect, distance: distance(rect, from: origin ?? CGPoint(x: size.width / 2, y: size.height / 2))))
                     x += box.width + columnGap
                 } else {
                     x += 4
@@ -73,9 +73,9 @@ enum StarfieldLayout {
         return !exclusions.contains { $0.intersects(rect) }
     }
 
-    private static func distanceFromCenter(_ rect: CGRect, size: CGSize) -> CGFloat {
-        let dx = rect.midX - size.width / 2
-        let dy = rect.midY - size.height / 2
+    private static func distance(_ rect: CGRect, from origin: CGPoint) -> CGFloat {
+        let dx = rect.midX - origin.x
+        let dy = rect.midY - origin.y
         return (dx * dx + dy * dy).squareRoot()
     }
 

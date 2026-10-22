@@ -30,16 +30,25 @@ import Testing
         #expect(map(.doubleClick(np("/r/top/readme.txt"), .file)) == ["open(/r/top/readme.txt)"])
     }
 
-    @Test func doubleClickFolderEntersLensWhenOpen() {
+    @Test func doubleClickFolderOpensInFinderEvenWithLensOpen() {
         var state = baseState()
         state.lens.isOpen = true
         state.lens.edge = .top
         state.lens.folders[.top] = np("/r/top/Alpha")
-        #expect(map(.doubleClick(np("/r/top/Alpha/Docs"), .folder), state) == ["lensEnter(/r/top/Alpha/Docs)"])
+        #expect(map(.doubleClick(np("/r/top/Alpha/Docs"), .folder), state) == ["open(/r/top/Alpha/Docs)"])
+        #expect(map(.doubleClick(np("/r/top/Alpha"), .folder)) == ["open(/r/top/Alpha)"])
     }
 
-    @Test func doubleClickFolderOpensLensOnOwningQuadrantWhenClosed() {
-        #expect(map(.doubleClick(np("/r/top/Alpha"), .folder)) == ["openLens(top,/r/top/Alpha)"])
+    @Test func singleLensEnterStillEntersLens() {
+        #expect(map(.lensEnter(np("/r/top/Alpha/Docs"))) == ["lensEnter(/r/top/Alpha/Docs)"])
+    }
+
+    @Test func backgroundClickDismissesPanel() {
+        #expect(map(.backgroundClicked) == ["dismissPanel"])
+    }
+
+    @Test func pinnedShelfDropReachesCore() {
+        #expect(map(.dragEnded(.pinnedShelf(.left))) == ["endDrag(pinnedShelf(QuadrantCore.Edge.left))"])
     }
 
     @Test func lensBackWithoutTargetGoesOneLevel() {

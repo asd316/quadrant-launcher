@@ -17,6 +17,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         windowController = controller
         model.window = controller
         buildStatusItem()
+        controller.onVisibilityChange = { [weak self] shown in self?.statusItem?.button?.highlight(shown) }
         hotkey.install { [weak self] in self?.model.togglePanel() }
         // Debug aid: QUADRANT_AUTOOPEN=1 opens the panel right after launch (used for screenshots).
         if ProcessInfo.processInfo.environment["QUADRANT_AUTOOPEN"] == "1" {

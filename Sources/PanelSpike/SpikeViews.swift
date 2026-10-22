@@ -48,6 +48,8 @@ final class SpikeRootView: NSView {
 @MainActor
 final class StashView: NSView {
     var onDrop: (() -> Void)?
+    /// Set only while a drag-in from another app is in progress.
+    var onExternalDrop: (() -> Void)?
 
     init() {
         super.init(frame: .zero)
@@ -68,10 +70,22 @@ final class StashView: NSView {
 
     required init?(coder: NSCoder) { fatalError("not used") }
 
-    override func draggingEntered(_ sender: any NSDraggingInfo) -> NSDragOperation { .copy }
+    override func draggingEntered(_ sender: any NSDraggingInfo) -> NSDragOperation {
+        spikeLog("stash draggingEntered")
+        return .copy
+    }
+
+    override func draggingUpdated(_ sender: any NSDraggingInfo) -> NSDragOperation { .copy }
 
     override func performDragOperation(_ sender: any NSDraggingInfo) -> Bool {
-        onDrop?()
+        let urls = sender.draggingPasteboard.readObjects(forClasses: [NSURL.self]) as? [URL] ?? []
+        spikeLog("stash received: \(urls.map(\.path))")
+        if let external = onExternalDrop {
+            onExternalDrop = nil
+            external()
+        } else {
+            onDrop?()
+        }
         return true
     }
 }
@@ -118,9 +132,15 @@ final class FileRowView: NSView, NSDraggingSource {
 
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 
+    // The icon and label subviews would otherwise take the mouse events, so the row never sees a drag.
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        return frame.contains(point) && !isHidden ? self : nil
+    }
+
     override func mouseDown(with event: NSEvent) {
         mouseDownPoint = event.locationInWindow
         dragStarted = false
+        spikeLog("row mouseDown")
     }
 
     override func mouseDragged(with event: NSEvent) {
@@ -138,7 +158,9 @@ final class FileRowView: NSView, NSDraggingSource {
         )
         let session = beginDraggingSession(with: [item], event: event, source: self)
         session.animatesToStartingPositionsOnCancelOrFail = true
-        onDragBegan?()
+        spikeLog("drag session started")
+        // Change the window only after AppKit has taken over the drag.
+        DispatchQueue.main.async { [weak self] in self?.onDragBegan?() }
     }
 
     func draggingSession(_ session: NSDraggingSession, sourceOperationMaskFor context: NSDraggingContext) -> NSDragOperation {
@@ -155,7 +177,35 @@ final class FileRowView: NSView, NSDraggingSource {
         } else {
             outcome = .otherApp
         }
-        print("op rawValue=\(operation.rawValue) at=\(screenPoint)")
+        spikeLog("op rawValue=\(operation.rawValue) at=\(screenPoint)")
         onDragEnded?(outcome)
+    }
+}
+
+func spikeLog(_ message: String) {
+    FileHandle.standardOutput.write(Data("[PanelSpike] \(message)\n".utf8))
+}
+
+/// Covers the menu bar button so a drag coming from another app can open the panel (drag-in, K3).
+/// Clicks are passed on to the button so its menu still works.
+@MainActor
+final class StatusDropView: NSView {
+    var onDragEntered: (() -> Void)?
+    weak var button: NSStatusBarButton?
+
+    override init(frame: NSRect) {
+        super.init(frame: frame)
+        registerForDraggedTypes([.fileURL])
+        autoresizingMask = [.width, .height]
+    }
+
+    required init?(coder: NSCoder) { fatalError("not used") }
+
+    override func mouseDown(with event: NSEvent) { button?.performClick(nil) }
+
+    override func draggingEntered(_ sender: any NSDraggingInfo) -> NSDragOperation {
+        spikeLog("menu bar button draggingEntered: opening stash")
+        onDragEntered?()
+        return .copy
     }
 }

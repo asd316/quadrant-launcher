@@ -43,6 +43,12 @@ final class SpikeController: NSObject, NSApplicationDelegate, NSTextFieldDelegat
         menu.addItem(show)
         menu.addItem(quit)
         item.menu = menu
+        if let button = item.button {
+            let drop = StatusDropView(frame: button.bounds)
+            drop.button = button
+            drop.onDragEntered = { [weak self] in self?.showStashForDragIn() }
+            button.addSubview(drop)
+        }
         statusItem = item
     }
 
@@ -69,6 +75,7 @@ final class SpikeController: NSObject, NSApplicationDelegate, NSTextFieldDelegat
         fullFrame = screen.frame
         let front = NSWorkspace.shared.frontmostApplication?.localizedName ?? "?"
         root.stashOnly = false
+        root.stash.onExternalDrop = nil
         panel.setFrame(fullFrame, display: true)
         panel.orderFrontRegardless()
         panel.makeKey()
@@ -87,10 +94,30 @@ final class SpikeController: NSObject, NSApplicationDelegate, NSTextFieldDelegat
 
     // MARK: Drag
 
+    /// Drag-in from another app: the drag passes over the menu bar button, so open only the stash.
+    private func showStashForDragIn() {
+        guard let panel, let root, !panel.isVisible else { return }
+        root.stashOnly = true
+        root.fileRow.isHidden = true
+        let size = NSSize(width: 320, height: 200)
+        panel.setFrame(
+            NSRect(x: fullFrame.midX - size.width / 2, y: fullFrame.midY - size.height / 2, width: size.width, height: size.height),
+            display: true
+        )
+        panel.orderFrontRegardless()
+        root.stash.onExternalDrop = { [weak self] in
+            self?.log("DRAG-IN RESULT: dropped on STASH from another app")
+            self?.closePanel(reason: "drag-in done")
+        }
+    }
+
     private func dragBegan() {
         guard let panel, let root else { return }
         log("drag began: hiding all but stash")
         root.stashOnly = true
+        // Keep the drag source in the window: hiding it can end the session.
+        root.fileRow.isHidden = false
+        root.fileRow.alphaValue = 0
         let size = NSSize(width: 320, height: 200)
         panel.setFrame(
             NSRect(x: fullFrame.midX - size.width / 2, y: fullFrame.midY - size.height / 2, width: size.width, height: size.height),
@@ -112,6 +139,7 @@ final class SpikeController: NSObject, NSApplicationDelegate, NSTextFieldDelegat
             closePanel(reason: "dropped elsewhere")
         } else {
             root.stashOnly = false
+            root.fileRow.alphaValue = 1
             panel.setFrame(fullFrame, display: true)
             panel.makeKey()
             panel.makeFirstResponder(root.textField)

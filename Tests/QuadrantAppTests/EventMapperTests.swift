@@ -26,6 +26,17 @@ import Testing
         #expect(map(.pinSlot(.top, np("/r/top/readme.txt"))) == ["pinSlot(top,/r/top/readme.txt)"])
     }
 
+    @Test func backgroundClickClosesOnlyTheLens() {
+        var state = baseState()
+        #expect(map(.backgroundClicked, state) == [])
+        state.lens.isOpen = true
+        state.lens.edge = .top
+        state.lens.folders[.top] = np("/r/top/Alpha")
+        #expect(map(.backgroundClicked, state) == ["dismissLens"])
+        state.filterText = "no"
+        #expect(map(.backgroundClicked, state) == ["setFilter()", "dismissLens"])
+    }
+
     @Test func doubleClickFileOpens() {
         #expect(map(.doubleClick(np("/r/top/readme.txt"), .file)) == ["open(/r/top/readme.txt)"])
     }

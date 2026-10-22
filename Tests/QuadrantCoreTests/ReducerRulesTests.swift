@@ -295,6 +295,15 @@ import Testing
         #expect(fx == [.restoreFull])
     }
 
+    @Test func dismissLensClosesOnlyTheLens() {
+        var s = fullPanel(PersistentState(roots: [.top: p("/r")]))
+        (s, _) = run(s, .clickStar(.top, star: p("/r/a/x")))
+        let (n, fx) = run(s, .dismissLens)
+        #expect(!n.lens.isOpen)
+        #expect(n.display == .full)
+        #expect(fx.isEmpty)
+    }
+
     @Test func r7_1_copyClosesPanel() {
         let (n, fx) = run(fullPanel(), .copyPath(p("/f")))
         #expect(n.display == .closed)

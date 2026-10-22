@@ -46,6 +46,13 @@ public struct PanelView: View {
         return ZStack(alignment: .topLeading) {
             ZStack(alignment: .topLeading) {
                 background(theme: theme, size: size)
+                // Empty-space click closes the lens only (never the panel); interactive content sits above it.
+                if lensOpen {
+                    Color.clear
+                        .contentShape(Rectangle())
+                        .frame(width: size.width, height: size.height)
+                        .onTapGesture { send(.backgroundClicked) }
+                }
                 externalZones(geometry: geometry, theme: theme, context: context)
                 ZStack(alignment: .topLeading) {
                     ForEach(Edge.allCases, id: \.self) { edge in
@@ -213,6 +220,8 @@ public struct PanelView: View {
             StashView(
                 slots: model.stash, selection: model.keyboardSelection, copyProgress: model.copyProgress,
                 theme: theme, context: context)
+            .contentShape(Rectangle())
+            .simultaneousGesture(TapGesture().onEnded {})
 
             if let message = model.message {
                 Text(message)
@@ -228,6 +237,8 @@ public struct PanelView: View {
         if let lens = model.lens {
             let opensAbove = lensOpensAboveStash(lens)
             LensView(lens: lens, selection: model.keyboardSelection, theme: theme, context: context)
+                .contentShape(Rectangle())
+                .simultaneousGesture(TapGesture().onEnded {})
                 .transition(
                     reduceMotion
                         ? .opacity

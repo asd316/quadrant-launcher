@@ -112,6 +112,8 @@ public enum UIEvent: Sendable, Equatable {
     case doubleClick(NodePath, NodeKind)
     case copyPath(NodePath)
     case lensEnter(NodePath)
+    /// Click on the empty panel background: if the lens is open, close it; never close the panel.
+    case backgroundClicked
     /// Tap on a crumb or the back chevron. `nil` means one level up.
     case lensBack(to: NodePath?)
     case stashRemove(NodePath)

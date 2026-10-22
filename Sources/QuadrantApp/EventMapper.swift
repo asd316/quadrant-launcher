@@ -52,6 +52,13 @@ enum EventMapper {
             return [.intent(.copyPath(path))]
         case .lensEnter(let path):
             return [.intent(.lensEnter(path))]
+        case .backgroundClicked:
+            // R7.5: one click outside the lens is the lens-level Esc, never the panel-level one.
+            guard ctx.state.lens.isOpen else { return [] }
+            if !ctx.state.filterText.isEmpty {
+                return [.intent(.setFilter("")), .intent(.dismissLens)]
+            }
+            return [.intent(.dismissLens)]
         case .lensBack(let target):
             return lensBack(to: target, in: ctx)
         case .stashRemove(let path):

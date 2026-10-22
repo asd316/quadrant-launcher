@@ -1,4 +1,5 @@
 import AppKit
+import Dispatch
 import QuadrantCore
 
 @MainActor
@@ -7,6 +8,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var windowController: PanelWindowController?
     private var statusItem: NSStatusItem?
     private var hotkey: any GlobalHotkey = AppDelegate.makeHotkey()
+    /// Retained for the whole launch; `kill -USR1` shows the panel (used by `Launch Quadrant.command`).
+    private var launcherSignal: DispatchSourceSignal?
 
     /// Seam: return the KeyboardShortcuts-backed hotkey here once full Xcode is available.
     private static func makeHotkey() -> any GlobalHotkey { NoGlobalHotkey() }
@@ -19,6 +22,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         buildStatusItem()
         controller.onVisibilityChange = { [weak self] shown in self?.statusItem?.button?.highlight(shown) }
         hotkey.install { [weak self] in self?.model.togglePanel() }
+        installLauncherSignal()
         // Debug aid: QUADRANT_AUTOOPEN=1 opens the panel right after launch (used for screenshots).
         if ProcessInfo.processInfo.environment["QUADRANT_AUTOOPEN"] == "1" {
             DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in self?.model.togglePanel() }
@@ -31,6 +35,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 NSApp.terminate(nil)
             }
         }
+    }
+
+    // MARK: Launcher
+
+    /// `kill -USR1 <pid>` shows the panel without toggling it. The double-click command uses this when the
+    /// app is already running, so a second launch brings the panel forward instead of closing it.
+    private func installLauncherSignal() {
+        signal(SIGUSR1, SIG_IGN)
+        let source = DispatchSource.makeSignalSource(signal: SIGUSR1, queue: .main)
+        source.setEventHandler { [weak self] in
+            Task { @MainActor in self?.model.showPanel() }
+        }
+        source.resume()
+        launcherSignal = source
     }
 
     // MARK: Status item

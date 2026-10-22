@@ -130,6 +130,20 @@ final class AppModel {
         rebuild()
     }
 
+    /// Launcher entry: show the panel, never close it. Used by the double-click command when the app is
+    /// already running, so a second launch always brings the panel forward instead of quitting it.
+    func showPanel() {
+        switch state.display {
+        case .closed:
+            dispatch(.summon)
+        case .full:
+            isBehindFinder = false
+            window?.bringToFront()
+        case .halfHidden:
+            break
+        }
+    }
+
     func setRoot(_ edge: Edge, to path: NodePath?) {
         dispatch(.setRoot(edge, path))
     }

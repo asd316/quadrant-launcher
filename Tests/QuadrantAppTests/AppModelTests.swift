@@ -74,6 +74,18 @@ import Testing
         #expect(model.handle(key: KeyInput(key: .letter("A"), text: "a")) == true)
         #expect(model.render.filterText == "a")
     }
+
+    @Test func launcherSignalShowsPanelWithoutTogglingItClosed() {
+        let model = AppModel(store: nil)
+        let window = FakeWindow()
+        model.window = window
+        model.showPanel()
+        #expect(model.state.display == .full)
+        #expect(window.calls.contains("restoreFull"))
+        model.showPanel()
+        #expect(model.state.display == .full)
+        #expect(window.calls.last == "front")
+    }
 }
 
 @MainActor

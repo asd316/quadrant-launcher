@@ -128,8 +128,9 @@ public struct PanelView: View {
             .anchored(shelfAlignment(edge), in: size, dx: edge == .left ? 12 : (edge == .right ? -12 : 0),
                       dy: edge == .top ? 12 : (edge == .bottom ? -12 : 0))
 
+            let branchRect = geometry.branchRect(edge: edge, projection: projection)
             BranchGroup(edge: edge, projection: projection, selection: model.keyboardSelection, theme: theme, context: context)
-                .branchPlacement(edge, size: size, center: center)
+                .branchPlacement(edge, size: size, rect: branchRect)
 
             starLayer(edge, projection: projection, size: size, geometry: geometry, theme: theme, context: context)
         }
@@ -142,24 +143,12 @@ public struct PanelView: View {
     ) -> some View {
         let slots = StarfieldLayout.slots(
             edge: edge, size: size, exclusions: geometry.starExclusions(edge: edge, quadrants: model.quadrants))
-        if projection.stars.branch == nil {
-            let factor: CGFloat = 0.46
-            let normal: CGPoint = {
-                switch edge {
-                case .top: CGPoint(x: 0, y: -1)
-                case .bottom: CGPoint(x: 0, y: 1)
-                case .left: CGPoint(x: -1, y: 0)
-                case .right: CGPoint(x: 1, y: 0)
-                }
-            }()
-            StarHint(text: "点击一个分支目录，显示它的星点", theme: theme)
-                .anchored(.center, in: size, dx: normal.x * factor * size.width / 2, dy: normal.y * factor * size.height / 2)
-        } else if projection.stars.items.isEmpty {
-            StarHint(text: "没有子文件夹", theme: theme)
-                .anchored(.center, in: size, dx: 0, dy: 0)
-                .offset(
-                    x: edge == .left ? -size.width * 0.33 : (edge == .right ? size.width * 0.33 : 0),
-                    y: edge == .top ? -size.height * 0.33 : (edge == .bottom ? size.height * 0.33 : 0))
+        if projection.stars.branch == nil || projection.stars.items.isEmpty {
+            let text = projection.stars.branch == nil ? "点击一个分支目录，显示它的星点" : "没有子文件夹"
+            let rect = geometry.hintRect(
+                edge: edge, quadrants: model.quadrants, textWidth: estimatedTextWidth(text, size: 12))
+            StarHint(text: text, theme: theme)
+                .anchored(.center, in: size, dx: rect.midX - size.width / 2, dy: rect.midY - size.height / 2)
         } else {
             StarField(
                 edge: edge, projection: projection, slots: slots, selection: model.keyboardSelection, theme: theme,
@@ -244,18 +233,15 @@ extension Edge {
 }
 
 extension View {
-    func branchPlacement(_ edge: Edge, size: CGSize, center: CGPoint) -> some View {
+    /// Places the group on `rect`: rows centered on it, left column trailing-aligned, right column leading-aligned.
+    func branchPlacement(_ edge: Edge, size: CGSize, rect: CGRect) -> some View {
         switch edge {
-        case .top:
-            return AnyView(frame(width: size.width, height: size.height, alignment: .center).offset(y: PanelGeometry.topRowOffset))
-        case .bottom:
-            return AnyView(frame(width: size.width, height: size.height, alignment: .center).offset(y: PanelGeometry.bottomRowOffset))
+        case .top, .bottom:
+            return AnyView(anchored(.center, in: size, dx: rect.midX - size.width / 2, dy: rect.midY - size.height / 2))
         case .left:
-            return AnyView(frame(width: center.x - PanelGeometry.leftColumnGap, height: size.height, alignment: .trailing))
+            return AnyView(anchored(.trailing, in: size, dx: rect.maxX - size.width))
         case .right:
-            return AnyView(
-                frame(width: center.x - PanelGeometry.rightColumnGap, height: size.height, alignment: .leading)
-                    .offset(x: center.x + PanelGeometry.rightColumnGap))
+            return AnyView(anchored(.leading, in: size, dx: rect.minX))
         }
     }
 }

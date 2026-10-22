@@ -64,7 +64,7 @@ enum StarfieldLayout {
         }
     }
 
-    private static func isValid(_ rect: CGRect, edge: Edge, size: CGSize, exclusions: [CGRect]) -> Bool {
+    static func isValid(_ rect: CGRect, edge: Edge, size: CGSize, exclusions: [CGRect]) -> Bool {
         let corners = [
             CGPoint(x: rect.minX, y: rect.minY), CGPoint(x: rect.maxX, y: rect.minY),
             CGPoint(x: rect.minX, y: rect.maxY), CGPoint(x: rect.maxX, y: rect.maxY),
@@ -77,5 +77,26 @@ enum StarfieldLayout {
         let dx = rect.midX - size.width / 2
         let dy = rect.midY - size.height / 2
         return (dx * dx + dy * dy).squareRoot()
+    }
+
+    /// A free box of `box` size inside the wedge, nearest to `near`. Falls back to centering on `near`.
+    static func freeRect(edge: Edge, size: CGSize, box: CGSize, exclusions: [CGRect], near: CGPoint) -> CGRect {
+        var best: CGRect?
+        var bestDistance = CGFloat.infinity
+        var y = screenInset
+        while y + box.height <= size.height - screenInset {
+            var x = screenInset
+            while x + box.width <= size.width - screenInset {
+                let rect = CGRect(x: x, y: y, width: box.width, height: box.height)
+                let d = hypot(rect.midX - near.x, rect.midY - near.y)
+                if d < bestDistance, isValid(rect, edge: edge, size: size, exclusions: exclusions) {
+                    best = rect
+                    bestDistance = d
+                }
+                x += 6
+            }
+            y += 6
+        }
+        return best ?? CGRect(x: near.x - box.width / 2, y: near.y - box.height / 2, width: box.width, height: box.height)
     }
 }

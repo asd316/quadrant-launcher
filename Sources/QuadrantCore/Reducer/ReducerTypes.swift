@@ -190,6 +190,10 @@ public enum Intent: Sendable {
     case focusBranch(Edge, branch: NodePath)
     case clickStar(Edge, star: NodePath, existence: PathExistence = .all)
     case openLens(Edge, folder: NodePath)
+    /// R2.8: a folder point drills the cloud one level deeper without opening the lens.
+    case drillCloud(Edge, folder: NodePath)
+    /// R2.8: the starfield's ↑ button moves the cloud to the parent folder.
+    case cloudUp(Edge)
     case lensEnter(NodePath)
     case lensBack
     case dismissLens

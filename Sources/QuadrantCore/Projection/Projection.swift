@@ -51,7 +51,8 @@ public enum Projection {
             branches: branches,
             stars: projectStars(
                 snapshot: snapshot, state: state, focus: focus, currentFolder: input.currentFolder,
-                capacity: input.starCapacity, usage: usage, now: now),
+                currentFolderChildren: input.currentFolderChildren, capacity: input.starCapacity,
+                usage: usage, now: now),
             floating: projectFloating(input: input, usage: usage, now: now),
             currentFolder: input.currentFolder,
             pinnedSlots: pinnedSlots)
@@ -89,56 +90,67 @@ public enum Projection {
             isPinned: isPinned, isFocused: node.path == focus)
     }
 
-    // MARK: Stars (R2.2, R2.3, R2.8, R3.2)
+    // MARK: Stars / cloud (R2.2, R2.3, R2.8, R3.2)
 
     static func projectStars(
         snapshot: FolderSnapshot, state: PersistentState, focus: NodePath?, currentFolder: NodePath?,
+        currentFolderChildren: [FolderNode]?, capacity: Int, usage: UsageIndex, now: Date
+    ) -> StarsResult {
+        guard let cloud = currentFolder ?? focus else { return .empty }
+        if state.marks[cloud]?.mark == .hidden { return .empty }
+        let root = snapshot.root.path
+        // L1 and L2 children are complete in the snapshot; L3 and deeper need the lens/cloud cache.
+        let children: [FolderNode]?
+        if let currentFolderChildren {
+            children = currentFolderChildren
+        } else if cloud == root {
+            children = snapshot.root.children
+        } else if depth(of: cloud, below: root) == 1 {
+            children = snapshot.node(at: cloud)?.children
+        } else {
+            children = nil
+        }
+        guard let children else {
+            return StarsResult(branch: cloud, items: [], truncatedCount: 0, isLoading: true)
+        }
+        return cloudStars(children, cloud: cloud, root: root, state: state, capacity: capacity, usage: usage, now: now)
+    }
+
+    /// R2.8: folders and files of one folder share the star cloud. Pinned folders first, then everything by
+    /// weight; files are leaves, folders drill one level deeper.
+    static func cloudStars(
+        _ children: [FolderNode], cloud: NodePath, root: NodePath, state: PersistentState,
         capacity: Int, usage: UsageIndex, now: Date
     ) -> StarsResult {
-        // R2.8: clicking the level-1 root turns the starfield into that root's direct file points.
-        if currentFolder == snapshot.root.path {
-            return projectRootFileStars(snapshot: snapshot, capacity: capacity, usage: usage, now: now)
-        }
-        guard let focus,
-            let branch = snapshot.root.folders.first(where: { $0.path == focus }),
-            state.marks[focus]?.mark != .hidden
-        else { return .empty }
-
-        let groups = branch.folders
-        // Brightness is relative to the strongest star of the whole group, shown or not.
-        let maxWeight = groups.map { DisplayWeight.weight(of: $0, usage: usage, now: now) }.max() ?? 0
+        let visible = children.filter { state.marks[$0.path]?.mark != .hidden }
+        let folders = visible.filter { $0.kind == .folder }
+        let files = visible.filter { $0.kind == .file }
+        let (pinned, restFolders) = DisplayWeight.splitPinned(folders, marks: state.marks)
+        let rankedRest = DisplayWeight.rank(restFolders + files, usage: usage, now: now)
         let capacity = max(0, capacity)
-        let (pinned, rest) = DisplayWeight.splitPinned(groups, marks: state.marks)
         let shownPinned = Array(pinned.prefix(capacity))
-        let rankedRest = DisplayWeight.rank(rest, usage: usage, now: now).prefix(capacity - shownPinned.count)
+        let shownRest = rankedRest.prefix(capacity - shownPinned.count)
+        let maxWeight = visible.map { DisplayWeight.weight(of: $0, usage: usage, now: now) }.max() ?? 0
+        let childDepth = depth(of: cloud, below: root) + 1
 
         func star(_ node: FolderNode, isPinned: Bool) -> StarItem {
             StarItem(
                 path: node.path, name: node.name,
                 brightness: DisplayWeight.brightness(
                     weight: DisplayWeight.weight(of: node, usage: usage, now: now), maxWeight: maxWeight),
-                isPinned: isPinned, hasDrillPath: state.drillPaths[node.path] != nil, kind: .folder)
+                isPinned: isPinned, hasDrillPath: state.drillPaths[node.path] != nil, kind: node.kind,
+                canPin: node.kind == .folder && childDepth <= 2)
         }
-        let items = shownPinned.map { star($0, isPinned: true) } + rankedRest.map { star($0.node, isPinned: false) }
-        return StarsResult(branch: focus, items: items, truncatedCount: groups.count - items.count)
+        let items = shownPinned.map { star($0, isPinned: true) }
+            + shownRest.map { star($0.node, isPinned: false) }
+        return StarsResult(branch: cloud, items: items, truncatedCount: visible.count - items.count)
     }
 
-    /// R2.8: the root's direct files, ranked like every other star; the lens still holds the full list.
-    static func projectRootFileStars(
-        snapshot: FolderSnapshot, capacity: Int, usage: UsageIndex, now: Date
-    ) -> StarsResult {
-        let files = snapshot.root.files
-        let maxWeight = files.map { DisplayWeight.weight(of: $0, usage: usage, now: now) }.max() ?? 0
-        let shown = DisplayWeight.rank(files, usage: usage, now: now).prefix(max(0, capacity))
-        let items = shown.map { weighted in
-            StarItem(
-                path: weighted.node.path, name: weighted.node.name,
-                brightness: DisplayWeight.brightness(weight: weighted.weight, maxWeight: maxWeight),
-                isPinned: false, hasDrillPath: false, kind: .file)
-        }
-        return StarsResult(
-            branch: snapshot.root.path, items: items, truncatedCount: files.count - items.count,
-            isRootFiles: true)
+    /// Levels below `root`: root itself is 0, a branch is 1, an L3 folder is 2.
+    static func depth(of folder: NodePath, below root: NodePath) -> Int {
+        guard folder != root, root.isAncestor(of: folder) else { return 0 }
+        let rel = folder.raw.dropFirst(root.raw == "/" ? 1 : root.raw.count + 1)
+        return rel.split(separator: "/").count
     }
 
     // MARK: Floating slots (R2.5)

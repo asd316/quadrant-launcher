@@ -72,6 +72,8 @@ func describe(_ intent: Intent) -> String {
     switch intent {
     case .focusBranch(let e, let b): "focusBranch(\(e),\(b.raw))"
     case .clickStar(let e, let s, _): "clickStar(\(e),\(s.raw))"
+    case .drillCloud(let e, let f): "drillCloud(\(e),\(f.raw))"
+    case .cloudUp(let e): "cloudUp(\(e))"
     case .openLens(let e, let f): "openLens(\(e),\(f.raw))"
     case .lensEnter(let f): "lensEnter(\(f.raw))"
     case .lensBack: "lensBack"

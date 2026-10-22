@@ -32,18 +32,20 @@ public struct StarItem: Hashable, Sendable {
     public var brightness: Double
     public var isPinned: Bool
     public var hasDrillPath: Bool
-    /// L3 folders under a branch are folders; a level-1 root can spread its direct files as file points (R2.8).
+    /// Folders drill into their own cloud; files are leaves (R2.2, R2.8).
     public var kind: NodeKind = .folder
+    /// Only L2 branches and L3 folders can be pinned (R3.2); deeper cloud folders cannot.
+    public var canPin: Bool = false
 }
 
 public struct StarsResult: Hashable, Sendable {
-    /// The focused branch these stars belong to; in root-file mode, the root folder (R2.2, R2.8).
+    /// The folder whose direct children this cloud shows. Nil when the quadrant has nothing to show.
     public var branch: NodePath?
-    /// Rank order: pinned first, then weight descending.
+    /// Rank order: pinned folders first, then folders and files by weight.
     public var items: [StarItem]
     public var truncatedCount: Int
-    /// True when `items` are the direct files of the root folder, not L3 folders under `branch` (R2.8).
-    public var isRootFiles: Bool = false
+    /// True while the App is reading a folder deeper than the snapshot (L4+).
+    public var isLoading: Bool = false
 
     public static let empty = StarsResult(branch: nil, items: [], truncatedCount: 0)
 }

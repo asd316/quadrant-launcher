@@ -172,32 +172,56 @@ private let wbState = state(roots: [.left: F.kbRoot], focus: [F.kbRoot: F.workbe
         ],
         usage: F.index([]), now: F.now, exists: { _ in false })
     #expect(result[.left]?.stars.branch == NodePath(F.workbench))
-    #expect(result[.top]?.stars.items.map(\.name).sorted() == ["已读", "待读"])
+    let topStars = result[.top]?.stars.items ?? []
+    #expect(topStars.count == 10)
+    #expect(topStars.contains { $0.name == "已读" && $0.kind == .folder })
+    #expect(topStars.contains { $0.kind == .file })
     #expect(result[.right]?.isEmpty == true)
 }
 
-@Test func r2_8_rootFilesBecomeFilePoints() {
+@Test func r2_8_cloudShowsFoldersAndFiles() {
     let root = "/r/root"
     let files = (1...8).map { F.file("\(root)/f\($0).txt", modified: F.ago(days: Double($0))) }
     let snapshot = FolderSnapshot(root: F.folder(root, [F.folder("\(root)/a"), F.folder("\(root)/b")] + files))
-    let result = Projection.project(
+    let all = Projection.project(
+        edge: .top, state: state(roots: [.top: root]),
+        input: EdgeInput(snapshot: snapshot, starCapacity: 10, currentFolder: NodePath(root)),
+        usage: F.index([]), now: F.now, exists: { _ in false })
+    #expect(all.stars.branch == NodePath(root))
+    #expect(all.stars.items.count == 10)
+    #expect(all.stars.items.contains { $0.kind == .folder })
+    #expect(all.stars.items.contains { $0.kind == .file })
+    #expect(all.stars.truncatedCount == 0)
+    #expect(!all.stars.isLoading)
+
+    let limited = Projection.project(
         edge: .top, state: state(roots: [.top: root]),
         input: EdgeInput(snapshot: snapshot, starCapacity: 3, currentFolder: NodePath(root)),
         usage: F.index([]), now: F.now, exists: { _ in false })
-    #expect(result.stars.isRootFiles)
-    #expect(result.stars.branch == NodePath(root))
-    #expect(result.stars.items.count == 3)
-    #expect(result.stars.items.allSatisfy { $0.kind == .file })
-    #expect(result.stars.truncatedCount == 5)
-    #expect(result.stars.items.map(\.name) == ["f1.txt", "f2.txt", "f3.txt"])
+    #expect(limited.stars.items.count == 3)
+    #expect(limited.stars.truncatedCount == 7)
 }
 
-@Test func r2_2_focusedBranchWithoutSubfoldersHasNoStars() {
+@Test func r2_8_deeperFolderWaitsForItsChildren() {
+    let root = "/r/root"
+    let branch = "\(root)/a"
+    let deep = "\(branch)/b"
+    let snapshot = FolderSnapshot(root: F.folder(root, [F.folder(branch, [F.folder(deep)])]))
+    let result = Projection.project(
+        edge: .top, state: state(roots: [.top: root]),
+        input: EdgeInput(snapshot: snapshot, starCapacity: 10, currentFolder: NodePath(deep)),
+        usage: F.index([]), now: F.now, exists: { _ in false })
+    #expect(result.stars.isLoading)
+    #expect(result.stars.branch == NodePath(deep))
+}
+
+@Test func r2_2_branchWithoutSubfoldersShowsItsFiles() {
     let s = state(roots: [.top: F.downloads], focus: [F.downloads: "\(F.downloads)/安装包"])
     let result = Projection.project(
         edge: .top, state: s, input: EdgeInput(snapshot: F.downloadsSnapshot, starCapacity: 10),
         usage: F.index([]), now: F.now, exists: { _ in false })
-    #expect(result.stars.items.isEmpty)
+    #expect(result.stars.items.count == 3)
+    #expect(result.stars.items.allSatisfy { $0.kind == .file })
     #expect(result.stars.branch == NodePath("\(F.downloads)/安装包"))
 }
 

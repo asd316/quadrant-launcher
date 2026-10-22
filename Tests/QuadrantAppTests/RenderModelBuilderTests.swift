@@ -12,7 +12,10 @@ import Testing
         let top = model.quadrants[.top]
         #expect(top?.status == .ready)
         #expect(top?.stars.branch == np("/r/top/Alpha"))
-        #expect(top?.stars.items.map(\.path) == [np("/r/top/Alpha/Docs")])
+        #expect(Set(top?.stars.items.map(\.path) ?? []) == [
+            np("/r/top/Alpha/Docs"), np("/r/top/Alpha/note.txt"),
+        ])
+        #expect(top?.stars.items.contains { $0.kind == .file } == true)
         #expect(top?.floating.items.map(\.path) == [np("/r/top/Alpha/note.txt")])
         #expect(model.quadrants[.bottom]?.status == .empty)
     }
@@ -84,14 +87,15 @@ import Testing
         #expect(render(baseState()).quadrants[.top]?.currentFolder == np("/r/top/Alpha"))
     }
 
-    @Test func rootFolderTurnsItsFilesIntoFilePoints() {
+    @Test func rootFolderShowsFoldersAndFiles() {
         var state = baseState()
         state.lens.edge = .top
         state.lens.folders[.top] = np("/r/top")
         let stars = render(state).quadrants[.top]?.stars
-        #expect(stars?.isRootFiles == true)
-        #expect(stars?.items.map(\.path) == [np("/r/top/readme.txt")])
-        #expect(stars?.items.first?.kind == .file)
+        #expect(stars?.branch == np("/r/top"))
+        #expect(stars?.items.count == 3)
+        #expect(stars?.items.contains { $0.kind == .folder } == true)
+        #expect(stars?.items.contains { $0.kind == .file } == true)
     }
 
     @Test func filterModeListsMatchesWithEdge() {

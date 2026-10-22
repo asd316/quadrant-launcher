@@ -54,7 +54,7 @@ struct RootEntry: View {
     private var name: String { projection?.root?.name ?? "" }
     private var vertical: Bool { edge.isHorizontalSide }
     private var hiddenCount: Int { projection?.branches.hiddenCount ?? 0 }
-    /// R2.8: the root is the source of the starfield when its file points are shown.
+    /// R2.8: the root is the source of the starfield when its contents are shown.
     private var isCurrent: Bool { projection?.currentFolder == projection?.root }
 
     var body: some View {
@@ -68,6 +68,12 @@ struct RootEntry: View {
                     .disabled(unavailable)
                     .onHover { hovered = $0 }
                     .help(unavailable ? "常驻文件夹不存在" : (projection?.root?.raw ?? ""))
+                    .contextMenu {
+                        if !unavailable, let root = projection?.root {
+                            Button("在透镜里查看全部") { context.send(.openLens(edge, folder: root)) }
+                            Button("在 Finder 中显示") { context.send(.revealInFinder(root)) }
+                        }
+                    }
             }
             if hiddenCount > 0 {
                 Button {
@@ -86,7 +92,7 @@ struct RootEntry: View {
 
     private func open() {
         guard !unavailable, let root = projection?.root else { return }
-        context.send(.openLens(edge, folder: root))
+        context.send(.drillCloud(edge, root))
     }
 
     private var entry: some View {
@@ -409,15 +415,16 @@ struct BranchGroup: View {
     let context: UIContext
 
     var body: some View {
-        // In root-file mode the starfield no longer belongs to the focused branch, so do not fill it.
+        // Only the branch that is the cloud's source keeps the focus fill; deeper clouds have no focused branch.
+        let cloud = projection.stars.branch
         let items = projection.branches.visualOrder.map { item in
             var shown = item
-            if projection.stars.isRootFiles { shown.isFocused = false }
+            if item.path != cloud { shown.isFocused = false }
             return shown
         }
         let more = projection.branches.truncatedCount
-        // In root-file mode the +n belongs to the file points, not the focused branch (R2.8).
-        let starsMore = projection.stars.isRootFiles ? 0 : projection.stars.truncatedCount
+        // Truncation is shown by the starfield's own「+n」control (R2.8), not by the branch pill.
+        let starsMore = 0
         let pills = ForEach(items, id: \.path) { item in
             BranchPill(
                 item: item, edge: edge, starsTruncated: starsMore,
@@ -481,28 +488,37 @@ struct StarView: View {
             InteractionNode(
                 path: item.path, kind: item.kind, context: context,
                 onClick: {
-                    // Folders drill in; a file point is selected like any other file (Enter copies its path).
-                    if isFolder { context.send(.clickStar(edge, item.path)) } else { context.send(.select(item.path)) }
+                    // Folders drill the cloud; a file point is selected like any other file (Enter copies its path).
+                    if isFolder { context.send(.drillCloud(edge, item.path)) } else { context.send(.select(item.path)) }
                 },
                 onDoubleClick: { context.send(.doubleClick(item.path, item.kind)) },
                 onHover: { hovered = $0 },
-                menu: nodeMenu(
-                    path: item.path, context: context,
-                    specific: isFolder
-                        ? [
-                            NodeAction(
-                                title: "在透镜里查看全部", icon: .symbol("list.bullet"),
-                                action: { context.send(.openLens(edge, folder: item.path)) }),
-                            item.isPinned
-                                ? NodeAction(title: "取消置顶", icon: .symbol("pin.slash"), action: { context.send(.unpinFolder(item.path)) })
-                                : NodeAction(title: "置顶", icon: .symbol("pin"), action: { context.send(.pinFolder(edge, item.path)) }),
-                        ]
-                        : [
-                            NodeAction(
-                                title: "放进固定位", icon: .symbol("pin"),
-                                action: { context.send(.pinSlot(edge, item.path)) })
-                        ])))
+                menu: nodeMenu(path: item.path, context: context, specific: menuActions),
+                // Folder double-click opens Finder (R7.7); wait out the interval so it does not also drill.
+                delaysClick: isFolder))
         .help(item.name)
+    }
+
+    private var menuActions: [NodeAction] {
+        if !isFolder {
+            return [
+                NodeAction(
+                    title: "放进固定位", icon: .symbol("pin"),
+                    action: { context.send(.pinSlot(edge, item.path)) })
+            ]
+        }
+        var actions = [
+            NodeAction(
+                title: "在透镜里查看全部", icon: .symbol("list.bullet"),
+                action: { context.send(.openLens(edge, folder: item.path)) })
+        ]
+        if item.canPin {
+            actions.append(
+                item.isPinned
+                    ? NodeAction(title: "取消置顶", icon: .symbol("pin.slash"), action: { context.send(.unpinFolder(item.path)) })
+                    : NodeAction(title: "置顶", icon: .symbol("pin"), action: { context.send(.pinFolder(edge, item.path)) }))
+        }
+        return actions
     }
 }
 

@@ -251,6 +251,36 @@ import Testing
         #expect(n.lens.folders[.top] == p("/r/b"))
     }
 
+    @Test func r2_8_drillCloudMovesTheCloudAndClosesTheLens() {
+        var s = fullPanel(PersistentState(roots: [.top: root]))
+        (s, _) = run(s, .openLens(.top, folder: p("/r/a")))
+        let (n, fx) = run(s, .drillCloud(.top, folder: p("/r/a/x")))
+        #expect(n.lens.folders[.top] == p("/r/a/x"))
+        #expect(!n.lens.isOpen)
+        #expect(fx.contains(.loadChildren(p("/r/a/x"))))
+    }
+
+    @Test func r2_8_drillingABranchAlsoFocusesIt() {
+        let s = fullPanel(PersistentState(roots: [.top: root]))
+        let (n, fx) = run(s, .drillCloud(.top, folder: p("/r/a")))
+        #expect(n.lens.folders[.top] == p("/r/a"))
+        #expect(n.persistent.focus[root] == p("/r/a"))
+        #expect(usageEvents(fx).map(\.action) == [.focusBranch])
+    }
+
+    @Test func r2_8_cloudUpMovesToParentAndStopsAtRoot() {
+        var s = fullPanel(PersistentState(roots: [.top: root]))
+        (s, _) = run(s, .drillCloud(.top, folder: p("/r/a/x")))
+        let (n, fx) = run(s, .cloudUp(.top))
+        #expect(n.lens.folders[.top] == p("/r/a"))
+        #expect(fx.contains(.loadChildren(p("/r/a"))))
+        var atBranch = n
+        (atBranch, _) = run(atBranch, .cloudUp(.top))
+        #expect(atBranch.lens.folders[.top] == root)
+        let (stopped, fx2) = run(atBranch, .cloudUp(.top))
+        #expect(stopped == atBranch && fx2.isEmpty)
+    }
+
     @Test func r6_2_drillPathFallsBackToExistingAncestor() {
         let l3 = p("/r/a/x")
         let s = fullPanel(PersistentState(roots: [.top: root], drillPaths: [l3: p("/r/a/x/y/z")]))

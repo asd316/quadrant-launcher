@@ -132,7 +132,7 @@ enum KeyResolver {
             return [.intent(.focusBranch(edge, branch: node.path))]
         case .star(let edge):
             return node.kind == .folder
-                ? [.intent(.clickStar(edge, star: node.path, existence: ctx.mapping.exists))]
+                ? [.intent(.drillCloud(edge, folder: node.path))]
                 : [.intent(.copyPath(node.path))]
         case .lensRow:
             return node.kind == .file ? [.intent(.copyPath(node.path))] : enterFolder(node, in: ctx)
@@ -161,6 +161,12 @@ enum KeyResolver {
     /// ⌘P: a file goes to a pinned slot of the current quadrant, a folder is pinned in place.
     private static func pin(in ctx: KeyContext) -> [AppCommand] {
         guard let node = ctx.selectedNode, let edge = Selection.edge(of: node, in: ctx.model) else { return [] }
+        if case .star(let starEdge) = node.role, node.kind == .folder {
+            // R3.2: only L2 branches and L3 folders can be pinned; deeper cloud folders cannot.
+            let canPin = ctx.model.quadrants[starEdge]?.stars.items
+                .first(where: { $0.path == node.path })?.canPin ?? false
+            guard canPin else { return [] }
+        }
         switch node.kind {
         case .file:
             return [.intent(.pinSlot(edge, node.path, kind: .file))]

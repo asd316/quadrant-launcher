@@ -173,22 +173,67 @@ public struct PanelView: View {
         let slots = StarfieldLayout.slots(
             edge: edge, size: size, exclusions: geometry.starExclusions(edge: edge, quadrants: model.quadrants),
             origin: geometry.starOrigin(edge: edge))
-        if projection.stars.branch == nil || projection.stars.items.isEmpty {
-            let stars = projection.stars
-            let text = stars.isRootFiles
-                ? (stars.truncatedCount > 0 ? "窗口太小，放不下文件点" : "这个文件夹没有直接文件")
-                : (stars.branch == nil ? "点击一个分支目录，显示它的星点" : "没有子文件夹")
-            let rect = geometry.hintRect(
-                edge: edge, quadrants: model.quadrants, textWidth: estimatedTextWidth(text, size: 12))
-            StarHint(text: text, theme: theme)
-                .anchored(.center, in: size, dx: rect.midX - size.width / 2, dy: rect.midY - size.height / 2)
+        let stars = projection.stars
+        if stars.isLoading {
+            hint("正在读取…", edge: edge, size: size, geometry: geometry, theme: theme)
+        } else if stars.branch == nil || stars.items.isEmpty {
+            let text = stars.branch == nil
+                ? "点击一个分支目录，显示它的内容"
+                : (stars.truncatedCount > 0 ? "窗口太小，放不下光点" : "这个文件夹没有内容")
+            hint(text, edge: edge, size: size, geometry: geometry, theme: theme)
         } else {
             StarField(
                 edge: edge, projection: projection, slots: slots, selection: model.keyboardSelection, theme: theme,
                 context: context, size: size
             )
-            .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: projection.stars.branch)
+            .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: stars.branch)
         }
+        if let cloud = stars.branch {
+            starControls(
+                edge: edge, cloud: cloud, stars: stars, size: size, geometry: geometry, theme: theme,
+                context: context)
+        }
+    }
+
+    @ViewBuilder
+    private func hint(
+        _ text: String, edge: Edge, size: CGSize, geometry: PanelGeometry, theme: Theme
+    ) -> some View {
+        let rect = geometry.hintRect(
+            edge: edge, quadrants: model.quadrants, textWidth: estimatedTextWidth(text, size: 12))
+        StarHint(text: text, theme: theme)
+            .anchored(.center, in: size, dx: rect.midX - size.width / 2, dy: rect.midY - size.height / 2)
+    }
+
+    /// ↑ goes up one cloud level; +n opens the full list in the lens (R2.8).
+    @ViewBuilder
+    private func starControls(
+        edge: Edge, cloud: NodePath, stars: StarsResult, size: CGSize, geometry: PanelGeometry, theme: Theme,
+        context: UIContext
+    ) -> some View {
+        let rect = geometry.starControlsRect(edge: edge)
+        HStack(spacing: 6) {
+            if cloud != model.quadrants[edge]?.root {
+                Button {
+                    context.send(.cloudUp(edge))
+                } label: {
+                    Image(systemName: "chevron.up").font(.system(size: 11, weight: .medium))
+                        .frame(width: 24, height: 24)
+                        .background(RoundedRectangle(cornerRadius: 7).fill(theme.shelfBackground))
+                        .overlay(RoundedRectangle(cornerRadius: 7).strokeBorder(theme.divider, lineWidth: 1))
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(theme.shelfText)
+                .help("返回上一层：\(cloud.raw)")
+            }
+            if stars.truncatedCount > 0 {
+                MoreButton(count: stars.truncatedCount, theme: theme, height: 24, color: theme.shelfText) {
+                    context.send(.openLens(edge, folder: cloud))
+                }
+            }
+        }
+        .frame(width: rect.width, height: rect.height, alignment: .leading)
+        .anchored(.topLeading, in: size, dx: rect.minX, dy: rect.minY)
     }
 
     // MARK: External drops (R7.7)

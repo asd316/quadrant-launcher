@@ -50,6 +50,29 @@ import Testing
         #expect(model.render.keyboardSelection == alpha.appending("note.txt"))
     }
 
+    @Test func cloudDrillLoadsADeeperFolderAndItsFiles() async throws {
+        let base = try makeTree()
+        let docs = base.appendingPathComponent("Alpha/Docs")
+        try Data("spec".utf8).write(to: docs.appendingPathComponent("spec.md"))
+        let dbURL = FileManager.default.temporaryDirectory.appendingPathComponent("qa-\(UUID().uuidString).sqlite")
+        defer {
+            try? FileManager.default.removeItem(at: base)
+            try? FileManager.default.removeItem(at: dbURL)
+        }
+        let model = AppModel(store: try SQLiteStore(url: dbURL), messageDuration: .milliseconds(100))
+        model.setRoot(.top, to: NodePath(base.path))
+        #expect(await waitUntil { model.render.quadrants[.top]?.status == .ready })
+        model.dispatch(.summon)
+        model.handle(.starCapacityMeasured(.top, 16))
+        model.dispatch(.drillCloud(.top, folder: NodePath(docs.path)))
+        #expect(await waitUntil {
+            let stars = model.render.quadrants[.top]?.stars
+            return stars?.branch == NodePath(docs.path) && stars?.isLoading == false
+        })
+        let stars = model.render.quadrants[.top]?.stars
+        #expect(stars?.items.contains { $0.name == "spec.md" && $0.kind == .file } == true)
+    }
+
     @Test func rejectionShowsMessageThenClears() async throws {
         let model = AppModel(store: nil, messageDuration: .milliseconds(100))
         model.dispatch(.summon)

@@ -72,7 +72,8 @@ private struct Reducer {
             usage(branch, .focusBranch)
             persist([.setFocus(root: root, branch: branch)])
             // R2.6: the focused branch becomes the current folder, so floating slots leave the old lens folder.
-            if state.filterText.isEmpty, state.lens.isOpen, state.lens.edge == edge { closeLens() }
+            if !state.filterText.isEmpty { clearFilter() }
+            if state.lens.isOpen, state.lens.edge == edge { closeLens() }
             state.lens.folders[edge] = branch
 
         case .clickStar(let edge, let star, let existence):
@@ -90,11 +91,49 @@ private struct Reducer {
 
         case .openLens(let edge, let folder):
             guard isFull else { return }
+            if !state.filterText.isEmpty { clearFilter() }
+            if let root = state.persistent.roots[edge], folder.parent == root {
+                persist([.setFocus(root: root, branch: folder)])
+            }
             openLensState(edge: edge, folder: folder, floor: folder, l3: nil)
             effects.append(.loadChildren(folder))
 
+        case .drillCloud(let edge, let folder):
+            guard isFull, let root = state.persistent.roots[edge], !state.missingRoots.contains(edge),
+                  folder == root || root.isAncestor(of: folder)
+            else { return }
+            if !state.filterText.isEmpty { clearFilter() }
+            if state.lens.isOpen { closeLens() }
+            // An L2 branch also updates focus; deeper folders only move the cloud (R2.8).
+            if folder != root {
+                if folder.parent == root {
+                    usage(folder, .focusBranch)
+                    persist([.setFocus(root: root, branch: folder)])
+                } else {
+                    usage(folder, .enterFolder)
+                }
+            }
+            state.lens.folders[edge] = folder
+            effects.append(.loadChildren(folder))
+
+        case .cloudUp(let edge):
+            guard isFull, let root = state.persistent.roots[edge], !state.missingRoots.contains(edge),
+                  let current = state.lens.folders[edge], current != root,
+                  let parent = current.parent, parent == root || root.isAncestor(of: parent)
+            else { return }
+            if !state.filterText.isEmpty { clearFilter() }
+            if state.lens.isOpen { closeLens() }
+            if parent.parent == root {
+                persist([.setFocus(root: root, branch: parent)])
+            }
+            state.lens.folders[edge] = parent
+            effects.append(.loadChildren(parent))
+
         case .lensEnter(let folder):
             guard isFull, state.lens.isOpen, let edge = state.lens.edge else { return }
+            if let root = state.persistent.roots[edge], folder.parent == root {
+                persist([.setFocus(root: root, branch: folder)])
+            }
             state.lens.folders[edge] = folder
             usage(folder, .enterFolder)
             recordDrill(folder)
@@ -106,6 +145,9 @@ private struct Reducer {
                   current != floor, let parent = current.parent, floor == parent || floor.isAncestor(of: parent)
             else { return }
             state.lens.folders[edge] = parent
+            if let root = state.persistent.roots[edge], parent.parent == root {
+                persist([.setFocus(root: root, branch: parent)])
+            }
             recordDrill(parent)
             effects.append(.loadChildren(parent))
 

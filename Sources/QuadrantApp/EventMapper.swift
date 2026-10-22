@@ -39,6 +39,10 @@ enum EventMapper {
             return [.intent(.focusBranch(edge, branch: path))]
         case .clickStar(let edge, let path):
             return [.intent(.clickStar(edge, star: path, existence: ctx.exists))]
+        case .drillCloud(let edge, let path):
+            return [.intent(.drillCloud(edge, folder: path))]
+        case .cloudUp(let edge):
+            return [.intent(.cloudUp(edge))]
         case .openLens(let edge, let folder):
             return [.intent(.openLens(edge, folder: folder))]
         case .select(let path):

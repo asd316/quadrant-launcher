@@ -104,6 +104,10 @@ public enum UIEvent: Sendable, Equatable {
     case externalDrop([NodePath], on: DropZone)
     case clickBranch(Edge, NodePath)
     case clickStar(Edge, NodePath)
+    /// Click a folder point: switch the cloud to that folder's folders and files (R2.8).
+    case drillCloud(Edge, NodePath)
+    /// Starfield ↑: move the cloud up one level (R2.8).
+    case cloudUp(Edge)
     /// Clicked a 「+n」: open the lens on `folder` to see everything.
     case openLens(Edge, folder: NodePath)
     /// Single click on a file or a lens row: move the keyboard selection there.

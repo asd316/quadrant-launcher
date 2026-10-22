@@ -129,8 +129,7 @@ struct PanelGeometry {
     }
 
     func branchRect(edge: Edge, projection: EdgeProjection) -> CGRect {
-        let hasBadge = projection.stars.truncatedCount > 0
-        let widths = projection.branches.items.map { Self.pillWidth(name: $0.name, hasBadge: $0.isFocused && hasBadge) }
+        let widths = projection.branches.items.map { Self.pillWidth(name: $0.name, hasBadge: false) }
         return branchRect(edge: edge, widths: widths, hasMore: projection.branches.truncatedCount > 0)
     }
 
@@ -150,6 +149,20 @@ struct PanelGeometry {
         }
     }
 
+    /// Starfield controls (↑ and the overflow「+n」), placed just outside the branch group's outer edge.
+    static let starControlsSize = CGSize(width: 60, height: 24)
+
+    func starControlsRect(edge: Edge) -> CGRect {
+        let o = starOrigin(edge: edge)
+        let size = Self.starControlsSize
+        switch edge {
+        case .top: return CGRect(x: center.x - size.width / 2, y: o.y - 32, width: size.width, height: size.height)
+        case .bottom: return CGRect(x: center.x - size.width / 2, y: o.y + 8, width: size.width, height: size.height)
+        case .left: return CGRect(x: o.x - 68, y: center.y - size.height / 2, width: size.width, height: size.height)
+        case .right: return CGRect(x: o.x + 8, y: center.y - size.height / 2, width: size.width, height: size.height)
+        }
+    }
+
     /// The half of the screen stars of `edge` must not enter (the branch group's side and the center).
     private func innerHalfPlane(edge: Edge) -> CGRect {
         let o = starOrigin(edge: edge)
@@ -166,6 +179,7 @@ struct PanelGeometry {
         var rects = [innerHalfPlane(edge: edge), stashRect.insetBy(dx: -Self.stashMargin, dy: -Self.stashMargin)]
         for other in Edge.allCases {
             rects.append(rootRect(edge: other).insetBy(dx: -Self.exclusionMargin, dy: -Self.exclusionMargin))
+            rects.append(starControlsRect(edge: other).insetBy(dx: -4, dy: -4))
             if let projection = quadrants[other], projection.status != .empty {
                 rects.append(shelfRect(edge: other).insetBy(dx: -Self.exclusionMargin, dy: -Self.exclusionMargin))
             }

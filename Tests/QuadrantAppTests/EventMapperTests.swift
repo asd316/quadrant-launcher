@@ -13,6 +13,8 @@ import Testing
         let alpha = np("/r/top/Alpha")
         #expect(map(.clickBranch(.top, alpha)) == ["focusBranch(top,/r/top/Alpha)"])
         #expect(map(.clickStar(.top, alpha)) == ["clickStar(top,/r/top/Alpha)"])
+        #expect(map(.drillCloud(.top, alpha)) == ["drillCloud(top,/r/top/Alpha)"])
+        #expect(map(.cloudUp(.top)) == ["cloudUp(top)"])
         #expect(map(.openLens(.top, folder: alpha)) == ["openLens(top,/r/top/Alpha)"])
         #expect(map(.select(alpha)) == ["select(/r/top/Alpha)"])
         #expect(map(.copyPath(alpha)) == ["copyPath(/r/top/Alpha)"])

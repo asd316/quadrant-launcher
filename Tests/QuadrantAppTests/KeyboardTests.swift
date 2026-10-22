@@ -84,7 +84,7 @@ import Testing
     @Test func activateDependsOnWhatIsSelected() {
         let state = baseState()
         #expect(resolve(.panel(.activate), ctx(state, selection: np("/r/top/Beta"))) == ["focusBranch(top,/r/top/Beta)"])
-        #expect(resolve(.panel(.activate), ctx(state, selection: np("/r/top/Alpha/Docs"))) == ["clickStar(top,/r/top/Alpha/Docs)"])
+        #expect(resolve(.panel(.activate), ctx(state, selection: np("/r/top/Alpha/Docs"))) == ["drillCloud(top,/r/top/Alpha/Docs)"])
         #expect(resolve(.panel(.activate), ctx(state, selection: np("/r/top/Alpha/note.txt"))) == ["copyPath(/r/top/Alpha/note.txt)"])
         #expect(resolve(.panel(.activate), ctx(state, selection: nil)) == [])
 

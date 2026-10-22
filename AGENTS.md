@@ -40,6 +40,7 @@ Swift 6 语言模式，严格并发检查。
 | 测试 | `Scripts/test.sh`（参数原样传给 `swift test`，例如 `--filter Reducer`） |
 | 并发逃生口检查 | `Scripts/check-escape-hatches.sh` |
 | 双击启动面板 | `Launch Quadrant.command`（编译后重启应用，确保看到新版本） |
+| 打包 DMG | `Scripts/package-dmg.sh [版本]`（release 构建 + ad-hoc 签名，输出 `dist/Quadrant Launcher <版本>.dmg`） |
 
 多个 agent 同时编译时，各自加 `--scratch-path .build-<名字>`，避免抢同一个 `.build` 锁。如果测试进程以 signal 11 崩溃、而代码看不出问题，多半是共享的 `.build` 里留下了新旧混杂的产物：先跑 `swift package clean` 再测。
 
@@ -50,7 +51,7 @@ Swift 6 语言模式，严格并发检查。
 - `swift test` 找不到 Testing.framework，所以测试一律走 `Scripts/test.sh`，它会补上框架路径。
 - 测试用 swift-testing（`import Testing`），XCTest 在这里不可用。
 - KeyboardShortcuts（Architecture 选定的唤起快捷键库）用到 `#Preview` 宏，只有完整 Xcode 能编译，所以暂时不在 `Package.swift` 里。装好 Xcode、组装 App 时再加回来。
-- 打包、签名、公证都需要完整 Xcode。
+- 打包 `.app` 和 DMG 可以用 `Scripts/package-dmg.sh`，做 ad-hoc 签名；Developer ID 签名、公证和上架仍需要完整 Xcode。
 
 ## Tests
 

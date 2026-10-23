@@ -13,8 +13,6 @@ enum StarfieldLayout {
     /// Distance kept from the diagonals and from the screen side.
     static let diagonalInset: CGFloat = 10
     static let screenInset: CGFloat = 8
-    /// Row stagger, so labels in neighboring rows do not line up in columns.
-    static let stagger: [CGFloat] = [0, 36, 14, 50, 24]
 
     struct Slot: Equatable {
         var frame: CGRect
@@ -40,27 +38,54 @@ enum StarfieldLayout {
     /// Non-overlapping label slots, nearest to `origin` (default: the screen center) first. `exclusions` already include their margins.
     static func slots(edge: Edge, size: CGSize, exclusions: [CGRect], origin: CGPoint? = nil) -> [Slot] {
         let box = labelSize
+        let starts = columnStarts(edge: edge, size: size, box: box)
         var result: [Slot] = []
-        var row = 0
         var y = screenInset + 3
         while y + box.height <= size.height - screenInset {
-            var x = screenInset + stagger[row % stagger.count]
-            while x + box.width <= size.width - screenInset {
+            for x in starts {
                 let rect = CGRect(x: x, y: y, width: box.width, height: box.height)
                 if isValid(rect, edge: edge, size: size, exclusions: exclusions) {
-                    result.append(Slot(frame: rect, distance: distance(rect, from: origin ?? CGPoint(x: size.width / 2, y: size.height / 2))))
-                    x += box.width + columnGap
-                } else {
-                    x += 4
+                    result.append(Slot(
+                        frame: rect,
+                        distance: distance(rect, from: origin ?? CGPoint(x: size.width / 2, y: size.height / 2))))
                 }
             }
             y += rowPitch
-            row += 1
         }
         return result.sorted {
             if $0.distance != $1.distance { return $0.distance < $1.distance }
             if $0.frame.minY != $1.frame.minY { return $0.frame.minY < $1.frame.minY }
             return $0.frame.minX < $1.frame.minX
+        }
+    }
+
+
+    /// Column grid per edge: left anchored to the left edge, right mirrored, top/bottom centered.
+    private static func columnStarts(edge: Edge, size: CGSize, box: CGSize) -> [CGFloat] {
+        let pitch = box.width + columnGap
+        switch edge {
+        case .left:
+            var xs: [CGFloat] = []
+            var x = screenInset
+            while x + box.width <= size.width - screenInset {
+                xs.append(x)
+                x += pitch
+            }
+            return xs
+        case .right:
+            var xs: [CGFloat] = []
+            var x = size.width - screenInset - box.width
+            while x >= screenInset {
+                xs.append(x)
+                x -= pitch
+            }
+            return xs
+        case .top, .bottom:
+            let available = size.width - 2 * screenInset
+            let count = max(1, Int((available + columnGap) / pitch))
+            let total = CGFloat(count) * box.width + CGFloat(count - 1) * columnGap
+            let start = (size.width - total) / 2
+            return (0..<count).map { start + CGFloat($0) * pitch }
         }
     }
 

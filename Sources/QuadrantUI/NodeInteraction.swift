@@ -69,6 +69,8 @@ struct InteractionNode {
     var onDoubleClick: (@MainActor () -> Void)?
     var onHover: (@MainActor (Bool) -> Void)?
     var menu: [NodeAction] = []
+    /// Full name shown by the AppKit tooltip; defaults to the node's file name.
+    var toolTip: String?
     /// Zone an outside (Finder) drop on this node counts for (R7.7).
     var dropZone: DropZone?
     /// Wait out the double-click interval before running `onClick`, so a double click does not also run it.
@@ -90,12 +92,17 @@ struct NodeInteractionOverlay: NSViewRepresentable {
 
     func makeNSView(context: Context) -> InteractionView {
         let view = InteractionView()
-        view.node = node
+        configure(view)
         return view
     }
 
     func updateNSView(_ view: InteractionView, context: Context) {
+        configure(view)
+    }
+
+    private func configure(_ view: InteractionView) {
         view.node = node
+        view.toolTip = node.toolTip ?? node.path.name
     }
 }
 

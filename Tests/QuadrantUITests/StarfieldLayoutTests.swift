@@ -66,3 +66,13 @@ func starCapacityGrowsWithScreenSize(edge: Edge) {
     #expect(!StarfieldLayout.isInside(p, edge: .right, size: reference, inset: 0))
     #expect(!StarfieldLayout.isInside(p, edge: .bottom, size: reference, inset: 0))
 }
+
+@Test(arguments: Edge.allCases)
+func starSlotsUseTheSameColumnGrid(edge: Edge) {
+    let slots = StarfieldLayout.slots(edge: edge, size: reference, exclusions: [])
+    let pitch = StarfieldLayout.labelSize.width + StarfieldLayout.columnGap
+    let xs = slots.map(\.frame.minX)
+    for x in xs {
+        #expect(xs.allSatisfy { abs($0 - x).truncatingRemainder(dividingBy: pitch) < 0.5 })
+    }
+}

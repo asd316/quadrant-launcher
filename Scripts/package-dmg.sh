@@ -7,7 +7,7 @@ cd "${0:A:h}/.."
 
 APP_NAME="Quadrant Launcher"
 BUNDLE_ID="com.quadrantlauncher.app"
-VERSION="${1:-${VERSION:-0.1.0}}"
+VERSION="${1:-${VERSION:-0.1.2}}"
 BUILD_NUMBER="${BUILD_NUMBER:-1}"
 DIST="dist"
 APP="$DIST/$APP_NAME.app"

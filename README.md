@@ -9,6 +9,7 @@ A full-screen, four-quadrant file launcher for the macOS menu bar.
 ![macOS 15+](https://img.shields.io/badge/macOS-15%2B-black?logo=apple)
 ![Swift 6](https://img.shields.io/badge/Swift-6-F05138?logo=swift&logoColor=white)
 ![SwiftPM](https://img.shields.io/badge/SwiftPM-ready-blue)
+![License: MIT](https://img.shields.io/badge/License-MIT-green)
 
 ![Quadrant Launcher 全屏浏览](docs/images/browse-light.png)
 
@@ -118,3 +119,7 @@ Scripts/check-escape-hatches.sh # 检查没写理由的并发逃生口
 - 文件内容搜索、预览、移动、删除、重命名（有意不做）
 
 欢迎提 Issue 交流想法。
+
+## License
+
+[MIT](LICENSE) © asd316

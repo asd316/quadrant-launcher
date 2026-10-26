@@ -17,59 +17,59 @@ func file(_ path: NodePath, ageDays: Double = 1) -> FolderNode {
     FolderNode(path: path, kind: .file, modifiedAt: now.addingTimeInterval(-ageDays * 86_400))
 }
 
+// Every folder and file name is a code (quadrant letter + number) so screenshots show no real names.
 let home = NodePath("/Users/preview")
-let downloads = home.appending("Downloads")
-let documents = home.appending("Documents")
-let desktop = home.appending("Desktop")
-let knowledge = home.appending("个人知识库")
+let downloads = home.appending("Folder A")
+let knowledge = home.appending("Folder B")
+let documents = home.appending("Folder C")
+let desktop = home.appending("Folder D")
 
-// Downloads: 8 branches, focus 论文 with 40 files.
-let papers = downloads.appending("论文")
+func codes(_ prefix: String, _ range: ClosedRange<Int>, _ format: String = "%02d", ext: String = "") -> [String] {
+    range.map { prefix + String(format: format, $0) + ext }
+}
+
+// Folder A: 8 branches, focus A8 with 40 files.
+let papers = downloads.appending("A8")
 let downloadsTree = folder(
     downloads,
-    children: ["截图", "安装包", "发票", "合同扫描", "照片", "视频", "音频"].enumerated().map {
+    children: codes("A", 1...7, "%d").enumerated().map {
         folder(downloads.appending($0.element), ageDays: Double($0.offset) + 3)
     } + [
         folder(
             papers, ageDays: 0.5,
-            children: [folder(papers.appending("待读")), folder(papers.appending("已读"), ageDays: 2)]
-                + (1...40).map { file(papers.appending(String(format: "paper-%02d.pdf", $0)), ageDays: Double($0) * 0.3) })
+            children: [folder(papers.appending("A8-1")), folder(papers.appending("A8-2"), ageDays: 2)]
+                + codes("A8-", 1...40, ext: ".pdf").enumerated().map { file(papers.appending($0.element), ageDays: Double($0.offset + 1) * 0.3) })
     ])
 
-// Knowledge base: 10 branches, focus 0-projects with 37 stars.
-let work = knowledge.appending("0-projects")
-let realStars = ["quadrant-file-launcher", "Photo Archive", "habit-tracker", "budget-app"]
-let starFolders =
-    realStars.enumerated().map { folder(work.appending($0.element), ageDays: Double($0.offset) * 4) }
-    + (1...33).map { folder(work.appending(String(format: "project-%02d", $0)), ageDays: Double($0) * 1.5) }
+// Folder B: 10 branches, focus B1 with 37 stars.
+let work = knowledge.appending("B1")
+let starFolders = codes("B1-", 1...37).enumerated().map { folder(work.appending($0.element), ageDays: Double($0.offset) * 1.5) }
 let knowledgeTree = folder(
     knowledge,
     children: [folder(work, children: starFolders)]
-        + ["5-learning", "exp-setup-notes", "3-methods", "AI-chats", "todo", "2-research", "100-ideas", "F-guides", "H-sharing"]
-            .enumerated().map { folder(knowledge.appending($0.element), ageDays: Double($0.offset) * 6 + 5) })
+        + codes("B", 2...10, "%d").enumerated().map { folder(knowledge.appending($0.element), ageDays: Double($0.offset) * 6 + 5) })
 
 let documentsTree = folder(
     documents,
-    children: ["配置", "合同", "Zoom", "项目代码", "简历", "税务"].enumerated().map {
+    children: codes("C", 1...6, "%d").enumerated().map {
         folder(
             documents.appending($0.element), ageDays: Double($0.offset) + 1,
-            children: $0.offset == 0
-                ? ["zsh", "raycast", "karabiner", "git"].map { folder(documents.appending("配置").appending($0)) } : [])
-    } + [file(documents.appending("备忘.txt"))])
+            children: $0.offset == 0 ? codes("C1-", 1...4, "%d").map { folder(documents.appending("C1").appending($0)) } : [])
+    } + [file(documents.appending("C-01.txt"))])
 
 let desktopTree = folder(
     desktop,
-    children: ["演示素材", "待处理", "草稿"].map { folder(desktop.appending($0)) }
-        + ["今天要发的.pptx", "白板.png", "待签.pdf"].enumerated().map { file(desktop.appending($0.element), ageDays: Double($0.offset)) })
+    children: codes("D", 1...3, "%d").map { folder(desktop.appending($0)) }
+        + ["D-01.pptx", "D-02.png", "D-03.pdf"].enumerated().map { file(desktop.appending($0.element), ageDays: Double($0.offset)) })
 
 let state = PersistentState(
     roots: [.top: downloads, .left: knowledge, .right: documents, .bottom: desktop],
-    focus: [downloads: papers, knowledge: work, documents: documents.appending("配置")],
+    focus: [downloads: papers, knowledge: work, documents: documents.appending("C1")],
     stash: [
-        StashItem(targetPath: home.appending("报价单.xlsx"), kind: .file, addedAt: now.addingTimeInterval(-60)),
-        StashItem(targetPath: home.appending("Glossary（术语表）.md"), kind: .file, addedAt: now),
+        StashItem(targetPath: home.appending("S-01.xlsx"), kind: .file, addedAt: now.addingTimeInterval(-60)),
+        StashItem(targetPath: home.appending("S-02.md"), kind: .file, addedAt: now),
     ],
-    pinnedSlots: ["AGENTS.md", "Glossary.md", "Design-Principles.md", "Prototype-Brief.md", "Todo.md"].enumerated().map {
+    pinnedSlots: codes("P-", 1...5, ext: ".md").enumerated().map {
         PinnedSlot(edge: .left, targetPath: knowledge.appending($0.element), addedAt: now.addingTimeInterval(Double($0.offset)))
     })
 
@@ -103,15 +103,15 @@ func makeModel(lens: Bool) -> PanelRenderModel {
         model.lens = LensModel(
             mode: .folder(edge: .top, crumbs: [downloads, papers]),
             rows: [
-                LensRow(path: papers.appending("已读"), kind: .folder, modifiedAt: Date().addingTimeInterval(-2 * 86_400)),
-                LensRow(path: papers.appending("待读"), kind: .folder, modifiedAt: Date().addingTimeInterval(-40 * 86_400)),
+                LensRow(path: papers.appending("A8-2"), kind: .folder, modifiedAt: Date().addingTimeInterval(-2 * 86_400)),
+                LensRow(path: papers.appending("A8-1"), kind: .folder, modifiedAt: Date().addingTimeInterval(-40 * 86_400)),
             ]
                 + (1...38).map {
                     LensRow(
-                        path: papers.appending(String(format: "paper-%02d.pdf", $0)), kind: .file,
+                        path: papers.appending(String(format: "A8-%02d.pdf", $0)), kind: .file,
                         modifiedAt: Date().addingTimeInterval(-Double($0) * 40_000 - 400_000), size: Int64($0) * 311_000)
                 })
-        model.keyboardSelection = papers.appending("paper-01.pdf")
+        model.keyboardSelection = papers.appending("A8-01.pdf")
     }
     return model
 }

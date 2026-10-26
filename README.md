@@ -40,9 +40,9 @@ Quadrant Launcher 只做一件事：把你最常用的四个文件夹同时摊�
 
 <div align="center">
 
-![透镜：在下载文件夹里往下钻](Assets/screenshots/lens-dark.png)
+![透镜：在一个象限里往下钻](Assets/screenshots/lens-dark.png)
 
-<sub>深色模式下的透镜：在 Downloads › 论文 里往下找，选中的文件可以一步复制路径或固定到文件架。截图用的是示例数据。</sub>
+<sub>深色模式下的透镜：在 Folder A › A8 里往下找，选中的文件可以一步复制路径或固定到文件架。截图用示例数据渲染，文件夹和文件名都是代号。</sub>
 
 </div>
 

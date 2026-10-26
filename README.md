@@ -106,7 +106,7 @@ Scripts/test.sh                 # 运行全部测试（swift-testing）
 Scripts/check-escape-hatches.sh # 检查没写理由的并发逃生口
 ```
 
-只装了 Command Line Tools 时，`swift test` 找不到 Testing.framework，请用 `Scripts/test.sh`，它会补上框架路径。开发约定见 [`AGENTS.md`](AGENTS.md)。
+只装了 Command Line Tools 时，`swift test` 找不到 Testing.framework，请用 `Scripts/test.sh`，它会补上框架路径。
 
 ## Status
 

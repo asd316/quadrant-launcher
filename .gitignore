@@ -5,5 +5,3 @@ DerivedData/
 
 dist/
 
-# Design docs stay local and are not published.
-docs/

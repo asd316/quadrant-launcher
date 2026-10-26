@@ -132,7 +132,7 @@ public enum UIEvent: Sendable, Equatable {
     /// R7.2 / R7.3. The UI reports the outcome; the App resizes the window and informs Core.
     case dragBegan(NodePath, NodeKind)
     case dragEnded(DragOutcome)
-    /// How many named stars fit in this edge's wedge at the current screen size (Data-Model › 展示上限).
+    /// How many named stars fit in this edge's wedge at the current screen size.
     case starCapacityMeasured(Edge, Int)
 }
 

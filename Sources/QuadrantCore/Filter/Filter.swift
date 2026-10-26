@@ -1,6 +1,6 @@
 import Foundation
 
-/// Type-to-filter (User-Stories L6): matches node names in every quadrant's snapshot.
+/// Type-to-filter (L6): matches node names in every quadrant's snapshot.
 public enum Filter {
     public struct Match: Hashable, Sendable {
         public var edge: Edge

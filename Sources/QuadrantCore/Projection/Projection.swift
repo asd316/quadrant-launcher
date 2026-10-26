@@ -1,6 +1,6 @@
 import Foundation
 
-/// `project(状态, 快照, 使用分, 展示上限) → 每个象限要显示什么` (Data-Model › Projection output).
+/// `project(状态, 快照, 使用分, 展示上限) → 每个象限要显示什么`.
 /// Pure and synchronous. Implements R1.4, R2.1–R2.3, R2.5, R3.1–R3.3.
 public enum Projection {
     /// - Parameters:

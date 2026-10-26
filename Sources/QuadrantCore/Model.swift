@@ -1,7 +1,7 @@
 import Foundation
 
-// Shared vocabulary for every layer. Terms follow docs/00-project-context/Glossary（术语表）.md;
-// table and field meanings follow docs/03-tech-design/Data-Model（数据结构与接口契约）.md.
+// Shared vocabulary for every layer: the domain terms (Branch, Star, Lens, Stash, slots, Drill Path)
+// and the persisted tables and fields.
 
 /// Standardized absolute POSIX path without a trailing slash. Every state is keyed by path, never by quadrant.
 public struct NodePath: Hashable, Comparable, Sendable, Codable, CustomStringConvertible {
@@ -52,7 +52,7 @@ public struct FolderNode: Hashable, Sendable {
     public var path: NodePath
     public var kind: NodeKind
     public var modifiedAt: Date
-    /// File size in bytes; nil for folders (shown in the lens, Design-Principles).
+    /// File size in bytes; nil for folders (shown in the lens).
     public var size: Int64?
     public var isSymlink: Bool
     public var children: [FolderNode]
@@ -96,7 +96,7 @@ public struct FolderSnapshot: Hashable, Sendable {
     }
 }
 
-/// Usage actions from Domain-Model R1.1 and R8.8. Raw values are the `usage_event.action` column values.
+/// Usage actions from R1.1 and R8.8. Raw values are the `usage_event.action` column values.
 public enum UsageAction: String, Sendable, Codable, CaseIterable {
     case focusBranch = "focus_branch"
     case openStar = "open_star"

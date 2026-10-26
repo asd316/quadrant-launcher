@@ -2,7 +2,7 @@ import CoreGraphics
 import QuadrantCore
 
 /// Where things sit. Every position depends on the screen size only, never on label widths:
-/// long names are truncated instead (Design-Principles › Implementation notes, 位置固定).
+/// long names are truncated instead.
 /// 1440×900 is the Figma reference.
 struct PanelGeometry {
     let size: CGSize

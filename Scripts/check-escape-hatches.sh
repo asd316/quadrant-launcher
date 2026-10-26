@@ -1,6 +1,6 @@
 #!/bin/zsh
 # Fails when Swift concurrency escape hatches appear without a justification
-# comment on the same line (Architecture › Concurrency rules).
+# comment on the same line.
 cd "${0:A:h}/.."
 hits=$(grep -rnE '@unchecked Sendable|nonisolated\(unsafe\)' Sources Tests --include='*.swift' | grep -v '//')
 if [[ -n "$hits" ]]; then

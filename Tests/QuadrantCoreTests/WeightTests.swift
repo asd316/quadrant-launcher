@@ -22,7 +22,7 @@ private typealias F = Fixture
 }
 
 @Test func r1_2_usageRollsUpToEveryAncestor() {
-    // Prototype-Brief: Glossary clicked 4 times lights up quadrant-file-launcher and 0-projects.
+    // Glossary clicked 4 times lights up quadrant-file-launcher and 0-projects.
     let glossary = "\(F.launcher)/00-project-context/Glossary（术语表）.md"
     let events = (0..<4).map { _ in F.event(glossary, .copyPath) }
     let index = F.index(events)

@@ -13,7 +13,7 @@ public enum FolderSourceError: Error, Equatable, CustomStringConvertible {
     }
 }
 
-/// Reads folders from disk. Read-only (R6.4). Scan rules: Data-Model › 扫描规则.
+/// Reads folders from disk. Read-only (R6.4).
 public struct FileSystemFolderSource: FolderSource {
     public init() {}
 

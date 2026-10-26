@@ -1,7 +1,7 @@
 import Foundation
 import QuadrantCore
 
-/// One-line Chinese messages (Design-Principles › Copy): state the reason, never apologize.
+/// One-line Chinese messages: state the reason, never apologize.
 enum Messages {
     static let stateReset = "状态已重置"
 

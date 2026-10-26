@@ -1,6 +1,6 @@
 import Foundation
 
-/// Panel shortcut actions from Design-Principles › Keyboard. Raw values are the keys used in `shortcuts.json`.
+/// Panel shortcut actions. Raw values are the keys used in `shortcuts.json`.
 public enum PanelAction: String, CaseIterable, Sendable, Hashable {
     case selectPrevious = "select_previous"
     case selectNext = "select_next"
@@ -23,7 +23,7 @@ public enum PanelAction: String, CaseIterable, Sendable, Hashable {
 }
 
 public extension PanelAction {
-    /// Default chord from the Design-Principles keyboard table and cross navigation table.
+    /// Default chord for each action.
     var defaultChord: KeyChord {
         switch self {
         case .selectPrevious: KeyChord(key: .up)

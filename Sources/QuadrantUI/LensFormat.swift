@@ -1,6 +1,6 @@
 import Foundation
 
-/// Text for the lens row's date and size columns (Design-Principles › Implementation notes).
+/// Text for the lens row's date and size columns.
 enum LensFormat {
     /// 今天 10:01 / 昨天 10:01 / 10月20日 (this year) / 2025/10/20 (earlier).
     static func dateText(_ date: Date, now: Date, calendar: Calendar = .current) -> String {

@@ -31,7 +31,7 @@ enum FileKinds {
     }
 }
 
-/// `UIEvent → [AppCommand]` (User-Flow, Data-Model › 用户意图). Pure.
+/// `UIEvent → [AppCommand]`. Pure.
 enum EventMapper {
     static func commands(for event: UIEvent, in ctx: MappingContext) -> [AppCommand] {
         switch event {

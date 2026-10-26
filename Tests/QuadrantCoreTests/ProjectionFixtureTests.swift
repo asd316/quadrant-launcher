@@ -3,7 +3,7 @@ import Testing
 
 @testable import QuadrantCore
 
-/// Shared fixtures (Prototype-Brief test dataset) for the Weight and Projection tests.
+/// Shared fixtures for the Weight and Projection tests.
 enum Fixture {
     static let now = Date(timeIntervalSince1970: 1_792_000_000)
     static let day: TimeInterval = 86_400

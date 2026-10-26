@@ -288,7 +288,7 @@ import Testing
         let (n, fx) = run(s, .clickStar(.top, star: l3, existence: existence))
         #expect(n.lens.folders[.top] == p("/r/a/x/y"))
         #expect(fx.contains(.loadChildren(p("/r/a/x/y"))))
-        // the stored record is not rewritten (Data-Model: fallback is display-time only)
+        // the stored record is not rewritten (the fallback is display-time only)
         #expect(n.persistent.drillPaths[l3] == p("/r/a/x/y/z"))
         #expect(mutations(fx).isEmpty)
     }

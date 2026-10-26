@@ -16,7 +16,7 @@ extension View {
 
 private func moreHelp(_ count: Int) -> String { "还有 \(count) 个，在透镜里看" }
 
-/// Small "+n" link used for every truncation (one component, Design-Principles).
+/// Small "+n" link used for every truncation (one component).
 struct MoreButton: View {
     let count: Int
     let theme: Theme

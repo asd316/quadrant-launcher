@@ -1,7 +1,7 @@
 import Foundation
 import QuadrantCore
 
-/// Reads `shortcuts.json` (Data-Model › Configured). Read-only: never writes or creates the file.
+/// Reads `shortcuts.json`. Read-only: never writes or creates the file.
 public struct ShortcutsConfigLoader: Sendable {
     public let fileURL: URL
 

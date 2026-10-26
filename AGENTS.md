@@ -4,11 +4,9 @@ macOS 菜单栏文件启动器：唤起后全屏四象限，快速找到文件�
 
 ## Source of truth
 
-设计在 `docs/`，代码跟着设计走。阅读顺序和目录说明见 `docs/README.md`。
-
-- 写任何功能前，读它对应的规则：业务规则在 `docs/01-product-definition/Domain-Model（业务对象、角色与规则）.md`（R1–R7），交互在 `docs/02-ux-design/`，分层、表结构、接口在 `docs/03-tech-design/`。
-- 术语以 `docs/00-project-context/Glossary（术语表）.md` 为准，代码命名用它的英文名（Branch、Star、Lens、Stash、Pinned Slot、Floating Slot、Drill Path）。
-- 实现时发现设计不对：先改 `docs/` 里对应的文档，再改代码。文档和代码讲同一件事时，两边同时改。
+- 业务规则按编号 R1–R8 引用，用户故事按 L1–L7、U1–U3、K1–K4、O1–O4 引用；每条规则都有对应测试，测试名带编号。
+- 代码命名用领域术语的英文名：Branch、Star、Lens、Stash、Pinned Slot、Floating Slot、Drill Path。
+- 维护者本地另有设计文档，不随仓库公开。本地存在 `docs/README.md` 时，写功能前先读它；发现设计不对，先改文档，再改代码。
 
 ## Layers
 
@@ -20,7 +18,7 @@ macOS 菜单栏文件启动器：唤起后全屏四象限，快速找到文件�
 | `QuadrantSystem` | 实现 Core 的端口：文件扫描、FSEvents、SQLite（GRDB）、配置文件、剪贴板、打开文件。对用户磁盘只读（R6.4）。 |
 | `QuadrantUI` | SwiftUI 视图和 AppKit 面板、拖放。只画 Core 给的结果，排序和取舍全在 Core。 |
 | `QuadrantApp` | 组装和生命周期。 |
-| `PanelSpike` | 验证用的一次性试验（Architecture › Validation），不进产品。 |
+| `PanelSpike` | 验证用的一次性试验，不进产品。 |
 
 Core 的形状：`reduce(状态, 意图, 时间) → (新状态, 副作用)` 和 `project(...) → 每个象限的显示结果`。Core 返回副作用，App 执行。
 
@@ -51,7 +49,7 @@ Swift 6 语言模式，严格并发检查。
 
 - `swift test` 找不到 Testing.framework，所以测试一律走 `Scripts/test.sh`，它会补上框架路径。
 - 测试用 swift-testing（`import Testing`），XCTest 在这里不可用。
-- KeyboardShortcuts（Architecture 选定的唤起快捷键库）用到 `#Preview` 宏，只有完整 Xcode 能编译，所以暂时不在 `Package.swift` 里。装好 Xcode、组装 App 时再加回来。
+- KeyboardShortcuts（选定的唤起快捷键库）用到 `#Preview` 宏，只有完整 Xcode 能编译，所以暂时不在 `Package.swift` 里。装好 Xcode、组装 App 时再加回来。
 - 打包 `.app` 和 DMG 可以用 `Scripts/package-dmg.sh`，做 ad-hoc 签名；Developer ID 签名、公证和上架仍需要完整 Xcode。
 
 ## Tests
@@ -59,7 +57,7 @@ Swift 6 语言模式，严格并发检查。
 - 每条业务规则至少一个测试，测试名带规则编号，例如 `r4_1_stashEvictsOldest`。
 - Core 用纯数据测：给定状态和意图，检查新状态和副作用。
 - System 用临时目录和临时数据库测，测完删除。
-- 测试数据参考 `docs/02-ux-design/assets/Prototype-Brief（原型交接说明）.md` 的测试数据集。
+- 共享测试数据集在 `Tests/QuadrantCoreTests/ProjectionFixtureTests.swift`。
 
 ## Done
 

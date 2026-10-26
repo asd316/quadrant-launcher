@@ -1,7 +1,7 @@
 import Testing
 @testable import QuadrantCore
 
-// Design-Principles › Keyboard (default table, cross navigation, customization limits). Esc is R7.5.
+// Keyboard: default table, cross navigation, customization limits. Esc is R7.5.
 
 @Test func shortcutDefaultsMatchDesignTable() {
     let bindings = ShortcutBindings.defaults

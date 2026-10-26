@@ -1,7 +1,7 @@
 import Foundation
 
-// Types of the Core state machine. See docs/03-tech-design/Data-Model（数据结构与接口契约）.md "Contracts".
-// Rules: Domain-Model R1.1, R3–R8.
+// Types of the Core state machine.
+// Rules: R1.1, R3–R8.
 
 public enum PanelDisplay: Hashable, Sendable {
     case closed
@@ -9,7 +9,7 @@ public enum PanelDisplay: Hashable, Sendable {
     case halfHidden
 }
 
-/// Where the keyboard is. Remembered across close and reopen (Design-Principles › Cross navigation).
+/// Where the keyboard is. Remembered across close and reopen.
 public enum KeyboardRegion: Hashable, Sendable {
     case center
     case top
@@ -78,7 +78,7 @@ public struct PanelState: Hashable, Sendable {
     public var display: PanelDisplay
     public var lens: LensState
     public var filterText: String
-    /// Whether the lens was open before the user started typing; Esc restores it (User-Flow panel states).
+    /// Whether the lens was open before the user started typing; Esc restores it.
     public var lensOpenBeforeFilter: Bool?
     public var region: KeyboardRegion
     /// Quadrants whose root folder was reported missing (R6.3). Reported, never auto-replaced.
@@ -177,7 +177,7 @@ public enum DragOutcome: Hashable, Sendable {
     case quadrant(Edge)
 }
 
-/// UI → Core. One case per row of the Data-Model "用户意图" table.
+/// UI → Core. One case per user intent.
 ///
 /// Not covered: moving the keyboard selection with plain arrow keys inside a region. It needs
 /// geometry (nearest node in a direction) that only the UI owns; the UI resolves the selection
@@ -240,7 +240,7 @@ public enum Rejection: Hashable, Sendable {
     case copyIntoItself
 }
 
-/// Core → App. One case per row of the Data-Model "副作用" table.
+/// Core → App. One case per side effect.
 public enum Effect: Hashable, Sendable {
     case recordUsage(UsageEvent)
     case persist([StateMutation])

@@ -2,7 +2,7 @@ import Foundation
 import GRDB
 import QuadrantCore
 
-/// SQLite-backed `StateStore` and `UsageLog` (Data-Model › Persisted).
+/// SQLite-backed `StateStore` and `UsageLog`.
 /// All writes run inside one GRDB transaction; a throwing mutation rolls the whole batch back.
 public final class SQLiteStore: StateStore, UsageLog {
     private let queue: DatabaseQueue

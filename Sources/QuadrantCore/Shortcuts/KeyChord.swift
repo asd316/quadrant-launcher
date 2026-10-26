@@ -139,7 +139,7 @@ public struct KeyChord: Hashable, Sendable, CustomStringConvertible {
 
     public var description: String { formatted }
 
-    /// Customization rules from Design-Principles › Keyboard: Esc is never bindable, and a chord needs a modifier
+    /// Customization rules: Esc is never bindable, and a chord needs a modifier
     /// unless it is an arrow or Return key.
     public var customizationProblem: ChordProblem? {
         if key == .escape { return .escapeReserved }

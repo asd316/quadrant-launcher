@@ -5,5 +5,5 @@ DerivedData/
 
 dist/
 
-# Figma exports show real local folder names; kept local only.
-docs/02-ux-design/assets/figma/*.png
+# Design docs stay local and are not published.
+docs/

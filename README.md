@@ -11,7 +11,7 @@ A full-screen, four-quadrant file launcher for the macOS menu bar.
 ![SwiftPM](https://img.shields.io/badge/SwiftPM-ready-blue)
 ![License: MIT](https://img.shields.io/badge/License-MIT-green)
 
-![Quadrant Launcher 全屏浏览](docs/images/browse-light.png)
+![Quadrant Launcher 全屏浏览](Assets/screenshots/browse-light.png)
 
 </div>
 
@@ -40,7 +40,7 @@ Quadrant Launcher 只做一件事：把你最常用的四个文件夹同时摊�
 
 <div align="center">
 
-![透镜：在下载文件夹里往下钻](docs/images/lens-dark.png)
+![透镜：在下载文件夹里往下钻](Assets/screenshots/lens-dark.png)
 
 <sub>深色模式下的透镜：在 Downloads › 论文 里往下找，选中的文件可以一步复制路径或固定到文件架。截图用的是示例数据。</sub>
 
@@ -50,8 +50,9 @@ Quadrant Launcher 只做一件事：把你最常用的四个文件夹同时摊�
 
 需要 macOS 15 及以上，以及 Swift 6 工具链（Xcode 或 Command Line Tools）。
 
+克隆本仓库，进入目录：
+
 ```bash
-git clone https://github.com/asd316/quadrant-launcher.git
 cd quadrant-launcher
 ```
 
@@ -98,8 +99,6 @@ QuadrantUI ──▶ QuadrantCore ◀── QuadrantSystem
 - **QuadrantUI** 只负责画 Core 给的结果。
 - 依赖方向由 `Package.swift` 的 target 依赖强制。
 
-产品定义、交互设计和技术设计都在 [`docs/`](docs/README.md)，包括全部业务规则（R1–R7）和术语表。
-
 ## Development
 
 ```bash
@@ -122,4 +121,4 @@ Scripts/check-escape-hatches.sh # 检查没写理由的并发逃生口
 
 ## License
 
-[MIT](LICENSE) © asd316
+[MIT](LICENSE)

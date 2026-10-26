@@ -50,9 +50,8 @@ Quadrant Launcher 只做一件事：把你最常用的四个文件夹同时摊�
 
 需要 macOS 15 及以上，以及 Swift 6 工具链（Xcode 或 Command Line Tools）。
 
-克隆本仓库，进入目录：
-
 ```bash
+git clone https://github.com/asd316/quadrant-launcher.git
 cd quadrant-launcher
 ```
 
@@ -121,4 +120,4 @@ Scripts/check-escape-hatches.sh # 检查没写理由的并发逃生口
 
 ## License
 
-[MIT](LICENSE)
+[MIT](LICENSE) © asd316
